@@ -1,4 +1,4 @@
 # bench-xecg
-Official repository of "Advancing ECG representation learning via standardised benchmarking" 
+Official repository of "BenchECG and xECG: a benchmark and baseline for ECG foundation models" 
 
 ## Coming soon
