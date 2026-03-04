@@ -8,7 +8,7 @@ final_wd: 0.4
 dropout: 0.
 grad_clip: null
 patience: 300
-wandb_log: true
+wandb_log: false
 debug: false
 monitor_metric: val_dino_loss
 monitor_mode: min
@@ -80,16 +80,19 @@ local_random_crop: 0.4
 win_len_incart: 12
 
 # folders
-data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
-data_folder_code15: /scratch/datasets/CODE15/processed/
-labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered_10sec.csv
-data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
+# data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
+# data_folder_code15: /scratch/datasets/CODE15/processed/
+# labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered_10sec.csv
+# data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
 
-data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
+# data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
 
-data_folder_chapman: /home/datasets/ChapmanNingbo/1.0.0/
-labels_file_chapman:  /home/datasets/ChapmanNingbo/1.0.0/exams_filtered.csv
-data_folder_code: /scratch/datasets/CODE/processed/
-labels_file_code: /scratch/datasets/CODE/processed/exams_filtered.csv
-data_folder_incart: /home/datasets/incart/
-data_folder_heedb: /scratch/datasets/HEEDB/
+# data_folder_chapman: /home/datasets/ChapmanNingbo/1.0.0/
+# labels_file_chapman:  /home/datasets/ChapmanNingbo/1.0.0/exams_filtered.csv
+# data_folder_code: /scratch/datasets/CODE/processed/
+# labels_file_code: /scratch/datasets/CODE/processed/exams_filtered.csv
+# data_folder_incart: /home/datasets/incart/
+# data_folder_heedb: /scratch/datasets/HEEDB/
+
+use_age_and_gender: true
+keep_age_gender_tokens: true

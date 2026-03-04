@@ -28,3 +28,4 @@ bench_xecg.egg-info
 cauchy_mult.egg-info
 logs_lightning
 .vscode
+models

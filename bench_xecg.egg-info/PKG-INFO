@@ -43,6 +43,8 @@ We strongly suggest to use the xECG class from there, as we simplified the code:
 
 ## How to evaluate on BenchECG
 
+### Adapt your model to our pipeline
+
 Our code comes with a convenient `models.BaseModel` class. This class has some methods that are used by the trainer to setup the optmizer: defining different learning rates for different part of the network (e.g. layerwise decay).
 
 `models.BaseModel` assumes models extending it are composed by a pre-trained core and a head appended to it for the downstream task.
@@ -59,9 +61,10 @@ If you need to use layerwise decay:
 - Implement the functions `get_layers`, this allow to use layerwise decay
 - Implement `additional_params`, again for layerwise decay define all the parameters that are not in the layer list, they will have the smallest learning rate.
 
-Once your model is adapted for the pipeline, create all the configuration files for all the task (see next section)
+### Find optimal hyperparameters on downstream tasks
 
-### Task specific documentation
+After the model is adapted to the pipeline, for each task create two different configuration files, one for linear probing and one for fine-tuning. 
+In the `config` folder there are the configuration files used in our work to use as a reference.
 
 Details of each task are in the following documentations:
 - [PTB-XL](docs/ptbxl.md)
@@ -74,6 +77,27 @@ Details of each task are in the following documentations:
 - [Age](docs/age.md)
 - [Blood test](docs/blood_test.md)
 - [Survival](docs/survival.md)
+
+### Launch all the experiments
+
+Once the individual configuration files are created, prepare a task list file (e.g., `configs/my_model_tasks.yaml`) that references all the experiments you want to run for both linear probing and fine-tuning. You can use `configs/task_config_list_lp.yaml` as a template.
+
+To ensure consistent logging, use the same wandb_group value for all tasks within a specific experiment type:
+- linear probing: `wandb_group: 'your_model_lp'`
+- fine-tuning: `wandb_group: 'your_model_ft'`
+
+To launch the experiments, run:
+```shell
+uv run train_all.py --config_file configs/<your-config-list>.yaml --num_runs 5
+```
+
+### Get the bench ecg score
+
+After all the experiemnts ended successfully run the following to get the final *BenchECG Score*:
+
+```shell
+uv run benchscore.py logs_lightning <your-experiment-name>
+```
 
 ## Call for feedbacks
 

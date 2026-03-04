@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import wfdb
 import numpy as np
@@ -17,10 +18,11 @@ class ECGCODE15Dataset(PretrainDataset):
             records (list): List of records of ECG traces
         """
         super().__init__(config, global_augmentations=global_augmentations, local_augmentations=local_augmentations)
-        self.data_folder = config.data_folder_code15
-        self.labels_file = config.labels_file_code15
+        self.data_folder = Path(config.data_folder_code15)
+        self.labels_file = Path(config.labels_file_code15)
         self.load_tabular_data()
         self.load_records()
+        self.load_age_gender()
 
     def load_records(self):
         self.records = self.tab_data.index.tolist()
@@ -33,12 +35,14 @@ class ECGCODE15Dataset(PretrainDataset):
         # set exam_id as index
         print("tabular data fields for CODE 15: ", self.tab_data.head())
 
-        # self.tab_data['exam_id'] = self.tab_data.parallel_apply(lambda row: Path(row['file_name']).stem, axis=1)
-
-        self.tab_data['valid'] = self.tab_data.parallel_apply(lambda row: os.path.exists(os.path.join(self.data_folder, f"{row['exam_id']}.hea")), axis=1)
+        self.tab_data['valid'] = self.tab_data.parallel_apply(lambda row: (self.data_folder / f"{row['exam_id']}.hea").exists(), axis=1)
         self.tab_data = self.tab_data[self.tab_data['valid']]
 
         self.tab_data.set_index('exam_id', inplace=True)
+
+    def load_age_gender(self):
+        self.ages = self.tab_data['age'].tolist()
+        self.genders = self.tab_data['is_male'].tolist()
 
 
 class ECGCODE15AgeDataset(ECGCODE15Dataset):
@@ -82,8 +86,9 @@ class ECGCODEDataset(PretrainDataset):
             records (list): List of records of ECG traces
         """
         super().__init__(config, global_augmentations=global_augmentations, local_augmentations=local_augmentations)
-        self.data_folder = config.data_folder_code
-        self.labels_file = config.labels_file_code
+        self.data_folder = Path(config.data_folder_code)
+        self.labels_file = Path(config.labels_file_code)
+        self.annotation_file = Path(config.annotation_file_code)
         self.use_single_ecg = config.use_single_ecg
         self.load_tabular_data()
         self.load_records()
@@ -97,30 +102,47 @@ class ECGCODEDataset(PretrainDataset):
     def __len__(self):
         return len(self.unique_patients)
 
-
     def load_tabular_data(self):
         # get the csv file with the tabular data
         self.tab_data = pd.read_csv(self.labels_file)
+        self.annotation_data = pd.read_csv(self.annotation_file)
         # set exam_id as index
         # remove trace_file, patient_id and nn_predicted_age
         print("tabular data fields for CODE: ", self.tab_data.head())
+        print("annotation data fields for CODE: ", self.annotation_data.head())
 
-        self.tab_data['patient_id'] = self.tab_data.parallel_apply(lambda row: row['file_name'].split('/')[1].split('_')[0], axis=1)
+        self.tab_data['exam_id_sliced'] = self.tab_data.parallel_apply(lambda row: row['file_name'].split('/')[1].split('TNMG')[-1], axis=1)
+        self.tab_data['exam_id'] = self.tab_data.parallel_apply(lambda row: row['exam_id_sliced'].split('_')[0], axis=1)
+
+        # merge the annotation data to the tabular data on exam_id
+        self.tab_data = self.tab_data.merge(self.annotation_data, on='exam_id', how='left')
         self.unique_patients = self.tab_data['patient_id'].unique()
-        self.patient_to_records = self.tab_data.groupby("patient_id")["file_name"].apply(list).to_dict()
+
+        # set index patient id for faster retrieval
+        self.tab_data = self.tab_data.set_index('patient_id').sort_index()
+
+        print(f'Merged annotation data for CODE: ', self.tab_data.head())
 
     def __getitem__(self, idx):           
-        patient = str(self.unique_patients[idx])
-        records = self.patient_to_records[patient]
+        patient = self.unique_patients[idx]
 
+        # get all the rows with specifiefied patient id and get the corresponding records
+        patient_rows = self.tab_data.loc[[patient]]
+        
         # records = self.tab_data[self.tab_data['patient_id'] == int(patient)]['file_name'].tolist()
         num_views = self.n_global_view if not self.use_single_ecg else 1
-        if len(records) > num_views:
-            records = np.random.choice(records, num_views)
+
+        # Correct sampling
+        if len(patient_rows) > num_views:
+            patient_rows = patient_rows.sample(n=num_views)
             
-        unique_records = set([record for record in records])
-        unique_signals = { record: wfdb.rdsamp(os.path.join(self.data_folder, record)) for record in unique_records }
-        signals = [ unique_signals[record] for record in records ]
+        unique_records = patient_rows['exam_id_sliced'].unique()
+        unique_signals = { rec: wfdb.rdsamp(str(self.data_folder / rec)) for rec in unique_records }
+        signals = [ unique_signals[row.exam_id_sliced] for _, row in patient_rows.iterrows() ]
+
+        ages = patient_rows['age'].values
+        first_gender = patient_rows['sex'].iloc[0]
+        gender = 1 if first_gender == 'M' else 0 if first_gender == 'F' else np.nan
 
         # mapping leads in the correct position
         new_signals = []
@@ -133,17 +155,25 @@ class ECGCODEDataset(PretrainDataset):
     
         if self.global_augmentations is not None:
             global_signals = [ self.global_augmentations(signals[i % len(signals)]) for i in range(self.n_global_view)]
+            global_ages = [ages[i % len(ages)] for i in range(self.n_global_view)]
         else:
-            global_signals = s
+            global_signals = signals
+            global_ages = ages
         
         if self.local_augmentations is not None and self.n_local_view > 0:
             local_signals = [ self.local_augmentations(signals[(i + self.n_global_view)% len(signals)]) for i in range(self.n_local_view)]
+            local_ages = [ages[(i + self.n_global_view) % len(ages)] for i in range(self.n_local_view)]
         else:
             local_signals = []
+            local_ages = None
 
         return  {
             'global_signals': global_signals,
             'local_signals': local_signals,
+            'global_ages': global_ages,
+            'global_genders': [gender] * self.n_global_view,
+            'local_ages': local_ages,
+            'local_genders': [gender] * self.n_local_view,
         }       
     
 

@@ -279,27 +279,34 @@ class PretrainedNetwork(L.LightningModule):
     def reconstruct_batch_sim_dino_v2(self, batch, step):
         global_signals = batch["global_signals"]
         local_signals = batch["local_signals"]
-        batch_size, seq_len, num_leads = global_signals[0].shape
+        batch_size, _, num_leads = global_signals[0].shape
 
-        global_out = [self.model(x, masking=True) for x in global_signals]
-        global_out_teacher = [self.model.teacher_fwd(x) for x in global_signals]
-        local_out = [self.model(x, masking=False, reconstruct=False) for x in local_signals]
+        global_genders = batch["global_genders"]
+        global_ages = batch["global_ages"]
+        local_ages = batch["local_ages"]
+        local_genders = batch["local_genders"]
+
+        global_out = [self.model(x, masking=True, age=age, gender=gender) for x, age, gender in zip(global_signals, global_ages, global_genders)]
+        global_out_teacher = [self.model.teacher_fwd(x, age=age, gender=gender) for x, age, gender in zip(global_signals, global_ages, global_genders)]
+        local_out = [self.model(x, masking=False, reconstruct=False, age=age, gender=gender) for x, age, gender in zip(local_signals, local_ages, local_genders)]
 
         # compute the loss and use the gradients only when it is needed
         teacher_student_loss = None
-       
-        # patch based loss
-        masks = [out['mask'] for out in global_out]
 
-        # true for the value padded
+        # padding_masks contains the padded part of the signal that should be excluded from the loss calculation
         padding_masks = [(sig != 0.).flip(1).cumsum(dim=1).flip(1) == 0 for sig in global_signals]
         padding_masks_patched = [m.view(batch_size, m.shape[1] // self.patch_size, self.patch_size, num_leads).sum(dim=-1) == num_leads for m in padding_masks]
-        combined_padding_mask = torch.cat(padding_masks_patched, dim=1).max(dim=-1)[0].flatten(0, 1)
+        combined_padding_mask = torch.stack(padding_masks_patched, dim=1).max(dim=-1)[0] # [bs, n_global_views, seq_len // patch_size]
 
-        patched_masks = [m.view(batch_size, m.shape[1] // self.patch_size, self.patch_size) for m in masks]
-        combined_mask = torch.cat(patched_masks, dim=1).max(dim=-1)[0].flatten(0, 1)
+        # mask for the loss calculation, true values need to be included in the loss, false values need to be excluded
+        masks = [out['mask'] for out in global_out]
+        seq_len = global_signals[0].shape[1]
+        n_patches = seq_len // self.patch_size
+        num_age_genger_tokens = [out['mask'].shape[1] - n_patches for out in global_out]
+        combined_mask = torch.stack(masks, dim=1).max(dim=-1)[0] # [bs, n_global_views, num_tokens]
         # i do not want to predict where masking is applied to masked tokens
-        combined_mask = combined_mask * ~combined_padding_mask
+        combined_mask[:, :, num_age_genger_tokens[0]:] = combined_mask[:, :, num_age_genger_tokens[0]:] * ~combined_padding_mask
+        combined_mask = combined_mask.flatten()
 
         cls_tok_stud_g = torch.stack([g['cls'] for g in global_out] + [l['cls'] for l in local_out], dim=0)
         cls_tok_teacher_g = torch.stack([g['cls'] for g in global_out_teacher], dim=0)

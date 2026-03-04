@@ -3,6 +3,7 @@ import os
 from joblib import Parallel, delayed
 from typing_extensions import override
 
+from wandb.util import np
 import wfdb
 
 from .pretraining_dataset import PretrainDataset
@@ -52,6 +53,15 @@ class ECGIncartDataset(PretrainDataset):
 
         print(f'Incart: loaded {len(self.samples)} samples from {len(self.records)} records.')
 
+    def read_comment(self, header, key):
+        # for each record read the comments
+        comment = header.__dict__['comments']
+        for c in comment:
+            if key in c.lower():
+                return c.split(':')[-1].strip()
+        return np.nan
+
+
     @override
     def __len__(self):
         return len(self.samples)
@@ -59,6 +69,9 @@ class ECGIncartDataset(PretrainDataset):
     @override
     def __getitem__(self, idx):
         signal, info = self.samples[idx]
+        age = int(self.read_comment(info, 'age'))
+        gender = self.read_comment(info, 'sex')
+        gender = 1 if gender.lower() == 'm' else 0 if gender.lower() == 'f' else np.nan
         
         self.map_leads_and_clean(signal, info)
 
@@ -75,4 +88,8 @@ class ECGIncartDataset(PretrainDataset):
         return  {
             'global_signals': global_signals,
             'local_signals': local_signals,
+            'global_ages': [age] * self.n_global_view,
+            'global_genders': [gender] * self.n_global_view,
+            'local_ages': [age] * self.n_local_view if local_signals is not None else None,
+            'local_genders': [gender] * self.n_local_view if local_signals is not None else None,   
         }

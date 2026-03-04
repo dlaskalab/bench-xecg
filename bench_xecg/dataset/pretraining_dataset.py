@@ -34,6 +34,8 @@ class PretrainDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         record = str(self.records[idx])
+        age = int(self.ages[idx])
+        gender = int(self.genders[idx])
 
         s, info = wfdb.rdsamp(os.path.join(self.data_folder, record))
 
@@ -51,10 +53,13 @@ class PretrainDataset(torch.utils.data.Dataset):
         else:
             local_signals = []
 
-
         return  {
             'global_signals': global_signals,
             'local_signals': local_signals,
+            'global_ages': [age] * self.n_global_view,
+            'global_genders': [gender] * self.n_global_view,
+            'local_ages': [age] * self.n_local_view,
+            'local_genders': [gender] * self.n_local_view,
         }
     
     def map_leads_and_clean(self, signal, info):

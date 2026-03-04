@@ -26,6 +26,8 @@ class pretrainedxLSTM(BaseModel):
         self.encoder_type = config.encoder_type
         self.sampling_freq = config.sampling_freq
         self.linear_probing = config.linear_probing
+        self.use_age_and_gender = config.use_age_and_gender
+        self.keep_age_gender_tokens = config.keep_age_gender_tokens
 
         self.patch_embedding = get_patch_embedding(config.patch_embedding, config.patch_size, config.embedding_size, num_channels)
 
@@ -50,6 +52,11 @@ class pretrainedxLSTM(BaseModel):
         if config.num_reg_token > 0:
             self.reg_token = nn.Parameter(torch.zeros(1, config.num_reg_token, config.embedding_size))
             nn.init.xavier_uniform_(self.reg_token, gain=1.0)
+
+        if self.use_age_and_gender:
+            # embedding for age buckets for every 5 years, from 18 to 90
+            self.age_embedding = nn.Embedding(16, config.embedding_size, padding_idx=0)
+            self.gender_embedding = nn.Embedding(3, config.embedding_size, padding_idx=0)
           
         if reconstruction:
             self.reconstruction = get_reconstruction_head(config.patch_size, config.embedding_size, num_channels)
@@ -130,8 +137,7 @@ class pretrainedxLSTM(BaseModel):
             x = self.add_reg_tokens(x)
 
         # pass to xlstm
-        need_expansion = False
-        out = self.core(x, need_expansion = need_expansion) # [batch_size, embedding_dim]
+        out = self.core(x, need_expansion=False) # [batch_size, embedding_dim]
 
         if self.num_reg_tokens > 0:
             out = self.remove_reg_tokens(out)
@@ -139,38 +145,25 @@ class pretrainedxLSTM(BaseModel):
         cls, out = self.pooling(out, padding_mask, pooling_type=self.cls_type)
         return cls, out
 
-    def mask_signal_if_needed(self, x, masking):
-        padding_mask = self.get_padding_mask(x)
+    def forward(self, x, masking=True, reconstruct=True, age=None, gender=None):
+        # padding_mask = self.get_padding_mask(x)
 
-        if masking:   # masking
-            mask = self.get_random_mask(x) # 1 is masked and 0 is non masked
-            x = x.masked_fill(mask, 0) # apply the mask
-
-        # patching
-        x_emb = self.patch_embedding(x)
-
-        # adding mask tokens
-        if masking:
-            batch_size, seq_len, _ = x.shape
-            # patching the mask, dimension [batch_size, seq_len]
-            patched_mask = mask.view(batch_size, seq_len // self.patch_size, self.patch_size)[:, :, 0]
-            x_emb = torch.where(
-                patched_mask.unsqueeze(-1), 
-                self.mask_token.expand_as(x_emb),
-                x_emb
-            )
-            # x_emb[patched_mask] = self.mask_token
-
-        return x_emb, padding_mask, mask if masking else None
-    
-    def forward(self, x, masking=True, reconstruct=True):
-        x_emb, padding_mask, mask = self.mask_signal_if_needed(x, masking)
+        # mask the signal if needed and get the patch embeddings
+        x_emb, mask = self.embed_and_mask_signal_if_needed(x, masking, age=age, gender=gender)
         
-        cls, out = self.forward_core(x_emb, padding_mask=padding_mask)
+        # forward on the core xlstm
+        cls, out = self.forward_core(x_emb) #, padding_mask=padding_mask)
+
+        if not self.keep_age_gender_tokens:
+            out = self.remove_age_gender_embeddings(out, age=age, gender=gender)
 
         # reconstruct signal
         if reconstruct:
-            rec, _ = self.reconstruction(out.clone().detach())
+            if self.keep_age_gender_tokens:
+                out_rec_input = self.remove_age_gender_embeddings(out, age=age, gender=gender)
+                rec, _ = self.reconstruction(out_rec_input.clone().detach())
+            else:
+                rec, _ = self.reconstruction(out.clone().detach())
 
         tortn = {
             'patches': out,
@@ -181,11 +174,170 @@ class pretrainedxLSTM(BaseModel):
         if reconstruct: tortn['reconstruction'] = rec
         
         return tortn
-
+    
     @torch.no_grad()
-    def teacher_fwd(self, x):
-        return self._teacher(x, masking=False, reconstruct=False)
+    def teacher_fwd(self, x, age=None, gender=None):
+        return self._teacher(x, masking=False, reconstruct=False, age=age, gender=gender)
          
+    def embed_and_mask_signal_if_needed(self, x, masking, age=None, gender=None):
+        # patching
+        x_patches = self.patch_embedding(x)
+
+        # add age and gender embeddings
+        x_age_gen = self.get_age_gender_embeddings(x_patches, age=age, gender=gender)
+
+        generated_mask = None
+        if masking:
+            # 4. Calculate mask based on the EMBEDDINGS, not the raw signal
+            # We pass 'x' optionally just to calculate where the padding is
+            generated_mask = self.get_random_mask(x_patches, raw_x=x) # True means "masked/replace with token"
+            
+            # 5. Apply the mask token
+            # Expand mask token to match batch and sequence dimensions
+            mask_token_expanded = self.mask_token.expand_as(x_patches)
+            
+            # Replace embeddings with mask_token where mask is True
+            x_patches = torch.where(
+                generated_mask, 
+                mask_token_expanded, 
+                x_patches
+            )
+
+            if x_age_gen.shape[1] > 0:
+                age_gen_mask = self.get_random_mask_for_age_gender(x_age_gen)
+                mask_token_expanded_age_gen = self.mask_token.expand_as(x_age_gen)
+                x_age_gen = torch.where(
+                    age_gen_mask,
+                    mask_token_expanded_age_gen,
+                    x_age_gen
+                )
+
+        # We always concatenate embeddings if aux tokens exist
+        if x_age_gen.shape[1] > 0:
+            x_final = torch.cat([x_age_gen, x_patches], dim=1)
+            
+            # 4. Concatenate Masks (Only if masking was active)
+            if generated_mask is not None:
+                # If we have age tokens, we must have an age mask (even if it's all False, 
+                # but here it comes from the loop above).
+                # Sanity check to ensure age_gen_mask exists if we are in this block
+                if age_gen_mask is None:
+                    # This happens if masking=True but x_age_gen was empty (logic handled by outer if)
+                    # OR if logic failed. 
+                    # If x_age_gen > 0 and masking=True, age_gen_mask is calculated above.
+                    pass 
+                
+                final_mask = torch.cat([age_gen_mask, generated_mask], dim=1)
+            else:
+                final_mask = None
+        else:
+            x_final = x_patches
+            final_mask = generated_mask
+
+        return x_final, final_mask
+    
+    def get_random_mask(self, x_emb, raw_x=None):
+        """
+        Return a mask of the same shape as x_emb (Batch, Num_Patches, 1).
+        Masked values (to be replaced) are set to TRUE.
+        """
+        batch_size, num_patches, _ = x_emb.shape
+        
+        # Determine padding based on raw_x if provided
+        if raw_x is not None:
+            # Reshape raw_x to [Batch, Num_Patches, Patch_Size, Channels]
+            # to check if a specific patch consists entirely of padding (0s)
+            x_reshaped = raw_x.view(batch_size, num_patches, self.patch_size, -1)
+            # If the sum of absolute values in a patch is 0, it is padding
+            is_padding = (x_reshaped.abs().sum(dim=(2, 3)) == 0).unsqueeze(-1)
+        else:
+            # Fallback if raw_x isn't passed (assume no padding)
+            is_padding = torch.zeros(batch_size, num_patches, 1, device=x_emb.device, dtype=torch.bool)
+
+        # Generate Random Mask (Shapes are now naturally [Batch, Num_Patches])
+        if self.masking_type == 'random':
+            rand = torch.rand(batch_size, num_patches, device=x_emb.device)
+            mask = (rand < self.mask_ratio) # True for masked
+            mask = mask.unsqueeze(-1)       # [Batch, Num_Patches, 1]
+            
+        elif self.masking_type == 'block':
+            rand = torch.rand(batch_size, num_patches, device=x_emb.device)
+            mask = (rand < self.mask_ratio / 4) 
+            # after a masked patch, the next 3 patches are masked
+            for i in range(1, 4):
+                mask = mask | mask.roll(-1, dims=1)
+            mask = mask.unsqueeze(-1)       # [Batch, Num_Patches, 1]
+        
+        else:
+            # Fallback (no masking)
+            mask = torch.zeros(batch_size, num_patches, 1, device=x_emb.device, dtype=torch.bool)
+
+        # Do NOT mask positions that are actually padding (keep them as original embeddings/zeros)
+        return mask & ~is_padding
+    
+    def get_random_mask_for_age_gender(self, x_age_gen):
+        batch_size, num_tokens, _ = x_age_gen.shape
+        # Vectorized implementation
+        rand = torch.rand(batch_size, num_tokens, device=x_age_gen.device)
+        mask = (rand < self.mask_ratio)
+        return mask.unsqueeze(-1) # [Batch, Num_Tokens, 1]
+
+    def get_age_token(self, age):
+        # from 15 to 85+ in 5 year increments,
+        age_bucket = ((age.clamp(15, 85) - 15) // 5).long()
+
+        # Shift by 1 so valid data is in range [1, 15]
+        age_bucket += 1
+
+        # Fill NaNs with 0 (the designated 'missing' index)
+        age_bucket = age_bucket.masked_fill(age.isnan(), 0)
+
+        age_emb = self.age_embedding(age_bucket)
+        return age_emb
+
+    def remove_age_gender_embeddings(self, x, age=None, gender=None):
+        if age is not None:
+            x = x[:, :-1, :]
+        if gender is not None:
+            x = x[:, :-1, :]
+        return x
+    
+    def get_gender_token(self, gender):
+        # Female -> 0 -> 1, Male -> 1 -> 2, NaN -> 0
+        gender_idx = gender.long() + 1
+        gender_idx = gender_idx.masked_fill(gender.isnan(), 0)
+
+        gender_emb = self.gender_embedding(gender_idx)
+        return gender_emb
+    
+    def get_age_token(self, age):
+        # from 15 to 85+ in 5 year increments,
+        age_bucket = ((age.clamp(15, 85) - 15) // 5).long()
+
+        # Shift by 1 so valid data is in range [1, 15]
+        age_bucket += 1
+
+        # Fill NaNs with 0 (the designated 'missing' index)
+        age_bucket = age_bucket.masked_fill(age.isnan(), 0)
+
+        age_emb = self.age_embedding(age_bucket)
+        return age_emb
+
+    def get_age_gender_embeddings(self, x, age=None, gender=None):
+        # add age and gender embeddings
+        embs = torch.zeros(x.shape[0], 0, self.embedding_size, device=x.device)
+        if age is not None:
+            age_emb = self.get_age_token(age)
+            # print("age_emb shape: ", age_emb.shape)
+            # print("x shape before adding age embedding: ", x.shape)
+            embs = torch.cat([age_emb.unsqueeze(1), embs], dim=1)
+
+        if gender is not None:
+            gender_emb = self.get_gender_token(gender)
+            embs = torch.cat([gender_emb.unsqueeze(1), embs], dim=1)
+
+        return embs
+
     def add_reg_tokens(self, x):
         reg_tokens = self.reg_token.expand(x.shape[0], -1, -1)
         half = self.num_reg_tokens // 2
@@ -214,30 +366,6 @@ class pretrainedxLSTM(BaseModel):
         padding_mask_patched = padding_mask.view(-1, num_patches, self.patch_size)[:, :, 0].unsqueeze(-1).expand(-1, -1, self.embedding_size)
         return padding_mask_patched
 
-    def get_random_mask(self, x):
-        """
-        Retutn a mask of the same shape as x, masked values are set to TRUE
-        """
-        # check when the x was all 0 and set the mask to 0
-        padding_mask = (x.abs().sum(dim=-1) == 0).unsqueeze(-1)
-        num_patches = x.shape[-2] // self.patch_size
-
-        if self.masking_type == 'random':
-            # masking the signal
-            rand = torch.rand(x.shape[0], num_patches, device=x.device)
-            mask = (rand < self.mask_ratio) # this is true for masked
-            # repeat the mask to num_patches * patch_size
-            mask = mask.repeat_interleave(self.patch_size, dim=1).unsqueeze(-1)
-        elif self.masking_type == 'block':
-            rand = torch.rand(x.shape[0], num_patches, device=x.device)
-            mask = (rand < self.mask_ratio / 4) # this is true for masked
-            # after a masked patch, the next 3 patches are masked
-            for i in range(1, 4):
-                mask = mask | mask.roll(-1, dims=1)
-            # repeat the mask to num_patches * patch_size
-            mask = mask.repeat_interleave(self.patch_size, dim=1).unsqueeze(-1)
-
-        return mask & ~padding_mask
     
     def trainable_parameters(self):
         if self.use_teacher_student:
@@ -300,10 +428,14 @@ class pretrainedxLSTM(BaseModel):
         if self.cls_type == 'token' or self.cls_type == 'token_2':
             params.append({'params': self.cls_token, 'lr': lr, 'weight_decay': wd, 'name': 'cls'})
         elif self.cls_type == 'attn_pool' or self.cls_type == 'lin_attn_pool':
-            params.append({'params': self.attn_pool.parameters(), 'lr': last_layer_lr, 'weight_decay': wd, 'name': 'cls'})
+            params.append({'params': self.attn_pool.parameters(), 'lr': lr, 'weight_decay': wd, 'name': 'cls'})
+
+        if self.use_age_and_gender:
+            params.append({'params': self.age_embedding.parameters(), 'lr': lr, 'weight_decay': wd, 'name': 'age_emb'})
+            params.append({'params': self.gender_embedding.parameters(), 'lr': lr, 'weight_decay': wd, 'name': 'gender_emb'})
 
         if self.num_reg_tokens > 0:
-            params.append({'params': self.reg_token, 'lr': last_layer_lr, 'weight_decay': wd, 'name': 'reg_tokens'})
+            params.append({'params': self.reg_token, 'lr': lr, 'weight_decay': wd, 'name': 'reg_tokens'})
 
         if hasattr(self.core, 'post_blocks_norm'):
             params.append({'params': self.core.post_blocks_norm, 'lr': lr, 'name': 'post_block_norm'})

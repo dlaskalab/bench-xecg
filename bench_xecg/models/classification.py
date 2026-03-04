@@ -19,15 +19,17 @@ class xLSTMClassification(pretrainedxLSTM):
             nn.Linear(config.embedding_size, num_classes)
         )
 
-    def forward(self, x):
+    def forward(self, x, age=None, gender=None):
         padding_mask = self.get_padding_mask(x)
 
         if self.linear_probing:
             with torch.no_grad():
                 x = self.patch_embedding(x)
+                x = self.add_age_gender_embeddings(x, age=age, gender=gender)
                 cls, _ = self.forward_core(x, padding_mask)
         else:  
             x = self.patch_embedding(x)
+            x = self.add_age_gender_embeddings(x, age=age, gender=gender)
             cls, _ = self.forward_core(x, padding_mask)
 
         res = self.head(cls)
@@ -51,13 +53,15 @@ class xLSTMSleepApnea(pretrainedxLSTM):
             nn.Linear(config.embedding_size, num_classes)
         )
 
-    def forward(self, x):
+    def forward(self, x, age=None, gender=None):
         if self.linear_probing:
             with torch.no_grad():
                 x = self.patch_embedding(x)
+                x = self.add_age_gender_embeddings(x, age=age, gender=gender)
                 _, features = self.forward_core(x)
         else:  
             x = self.patch_embedding(x)
+            x = self.add_age_gender_embeddings(x, age=age, gender=gender)
             _, features = self.forward_core(x)
 
         # remove the context patches from the features
@@ -91,13 +95,15 @@ class xLSTMFeatureClassification(pretrainedxLSTM):
             nn.Linear(config.embedding_size, num_classes)
         )
 
-    def forward(self, x):
+    def forward(self, x, age=None, gender=None):
         if self.linear_probing:
             with torch.no_grad():
                 x = self.patch_embedding(x)
+                x = self.add_age_gender_embeddings(x, age=age, gender=gender)
                 _, features = self.forward_core(x)
         else:  
             x = self.patch_embedding(x)
+            x = self.add_age_gender_embeddings(x, age=age, gender=gender)
             _, features = self.forward_core(x)
 
         _, features = self.pooling(features)

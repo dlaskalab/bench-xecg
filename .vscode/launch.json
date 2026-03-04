@@ -10,8 +10,9 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": false,
-            "args": ["--config_file", "configs/mit_bih_cls/ecgcpc_lp.yaml"]
+            "justMyCode": true,
+            "subProcess": false,
+            "args": ["--config_file", "configs/pretrain/pretrain_run_code15.yaml"]
         }
     ],
 }

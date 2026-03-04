@@ -109,6 +109,15 @@ def make_collate_fn(config):
                     for view in range(result['local_signals'].shape[0])
                 ], dim=0)
 
+        if 'global_ages' in batch[0]:
+            result['global_ages'] = torch.stack([torch.tensor(sample['global_ages']) for sample in batch], dim=1)
+        if 'global_genders' in batch[0]:
+            result['global_genders'] = torch.stack([torch.tensor(sample['global_genders']) for sample in batch], dim=1)
+        if 'local_ages' in batch[0]:
+            result['local_ages'] = torch.stack([torch.tensor(sample['local_ages']) for sample in batch], dim=1)
+        if 'local_genders' in batch[0]:
+            result['local_genders'] = torch.stack([torch.tensor(sample['local_genders']) for sample in batch], dim=1)
+
         return result
 
     return collate_fn
