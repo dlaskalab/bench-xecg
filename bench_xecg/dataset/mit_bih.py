@@ -85,12 +85,18 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
         self.headers = {}
         self.signals = {}
         self.r_peaks = {}
+        self.ages = {}
+        self.genders = {}
 
         def process_patient(patient):
             signal, _ = wfdb.rdsamp(os.path.join(self.data_folder, 'raw', f'{patient}'))
 
             header = wfdb.rdheader(os.path.join(self.data_folder, 'raw', f'{patient}'))
             annotations = wfdb.rdann(os.path.join(self.data_folder + 'raw', f'{patient}'), 'atr')
+
+            age = int(header.comments[0].split(' ')[0].strip())
+            gender = header.comments[1].split(' ')[0].strip()
+            gender = 1 if gender == 'M' else 0 if gender == 'F' else - 1
 
             # r_peaks are in the original frequency, we will convert them later to the model's frequency after resampling the signal
             # we also convert the annotation symbol to the main class label and filter only valid annotations
@@ -100,19 +106,21 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
             if self.num_classes == 3:
                 r_peaks = [(r_peak, label) for r_peak, label in r_peaks if label in ['N', 'S', 'V']]
 
-            return patient, signal, header, annotations, r_peaks
+            return patient, signal, header, annotations, r_peaks, age, gender
 
         results = Parallel(n_jobs=-1)(delayed(process_patient)(patient) for patient in self.patients)
         # results = [process_patient(patient) for patient in self.patients]
 
         ## RESAMPLING SIGNALS and R PEAKS
-        for patient, signal, header, annotations, r_peaks in results:
+        for patient, signal, header, annotations, r_peaks, age, gender in results:
             if self.sampling_freq != header.fs:
                 signal = nk.signal_resample(signal, sampling_rate=header.fs, desired_sampling_rate=self.sampling_freq, method='FFT')
                 self.r_peaks[patient] = [(int(np.round(r_peak * self.freq_factor)), label) for r_peak, label in r_peaks]
         
             self.signals[patient] = signal
             self.headers[patient] = header
+            self.ages[patient] = age
+            self.genders[patient] = gender
 
 
     def load_samples(self, subset):
@@ -231,6 +239,8 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
         patient = sample['patient']
         signal = self.signals[patient]
         header = self.headers[patient]
+        age = self.ages[patient]
+        gender = self.genders[patient]
 
         len_signal = signal.shape[0]
 
@@ -280,6 +290,8 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
             'signal': window_signal,
             'patient_id': patient,
             'label': labels_mask,
+            'age': age,
+            'gender': gender,
             # 'r_peak_orig': original_r_peaks,
         }
 
@@ -387,6 +399,8 @@ def make_collate_fn(config, split='train'):
             'r_peak': r_peaks,
             'labels': labels,
             'r_peak_orig': r_peaks_orig,
+            'ages': torch.tensor([item['age'] for item in batch], dtype=torch.float32),
+            'genders': torch.tensor([item['gender'] for item in batch], dtype=torch.float32),
         }
 
     return collate_fn

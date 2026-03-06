@@ -161,6 +161,8 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
     def predict_batch(self, batch):
         x = batch["signals"]
         targets = batch['labels'].long()
+        age = batch['ages']
+        gender = batch['genders']
 
         if self.linear_probing:
             self.model.set_eval_linear_probing()
@@ -169,12 +171,12 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
             targets = targets + 1
 
         if self.single_hb:
-            cls = self.model(x) # [bs, 1, num_classes]
+            cls = self.model(x, age=age, gender=gender) # [bs, 1, num_classes]
             targets = targets.squeeze()
             loss_cls = nn.functional.cross_entropy(cls, targets, weight=self.weights, ignore_index=-1)
             preds = torch.argmax(cls, dim=-1)
         else:
-            cls = self.model(x).permute(0, 2, 1)
+            cls = self.model(x, age=age, gender=gender).permute(0, 2, 1)
             #print('cls shape:', cls.shape)
             #print('target shape:', targets.shape)
             loss_cls = nn.functional.cross_entropy(cls, targets, weight=self.weights, ignore_index=-1)
