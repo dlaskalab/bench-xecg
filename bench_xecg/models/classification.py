@@ -20,17 +20,15 @@ class xLSTMClassification(pretrainedxLSTM):
         )
 
     def forward(self, x, age=None, gender=None):
-        padding_mask = self.get_padding_mask(x)
+        # padding_mask = self.get_padding_mask(x)
 
         if self.linear_probing:
             with torch.no_grad():
-                x = self.patch_embedding(x)
-                x = self.add_age_gender_embeddings(x, age=age, gender=gender)
-                cls, _ = self.forward_core(x, padding_mask)
+                x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
+                cls, _ = self.forward_core(x) #, padding_mask)
         else:  
-            x = self.patch_embedding(x)
-            x = self.add_age_gender_embeddings(x, age=age, gender=gender)
-            cls, _ = self.forward_core(x, padding_mask)
+            x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
+            cls, _ = self.forward_core(x) #, padding_mask)
 
         res = self.head(cls)
         return res
@@ -56,12 +54,10 @@ class xLSTMSleepApnea(pretrainedxLSTM):
     def forward(self, x, age=None, gender=None):
         if self.linear_probing:
             with torch.no_grad():
-                x = self.patch_embedding(x)
-                x = self.add_age_gender_embeddings(x, age=age, gender=gender)
+                x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
                 _, features = self.forward_core(x)
         else:  
-            x = self.patch_embedding(x)
-            x = self.add_age_gender_embeddings(x, age=age, gender=gender)
+            x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
             _, features = self.forward_core(x)
 
         # remove the context patches from the features
@@ -98,12 +94,10 @@ class xLSTMFeatureClassification(pretrainedxLSTM):
     def forward(self, x, age=None, gender=None):
         if self.linear_probing:
             with torch.no_grad():
-                x = self.patch_embedding(x)
-                x = self.add_age_gender_embeddings(x, age=age, gender=gender)
+                x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
                 _, features = self.forward_core(x)
         else:  
-            x = self.patch_embedding(x)
-            x = self.add_age_gender_embeddings(x, age=age, gender=gender)
+            x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
             _, features = self.forward_core(x)
 
         _, features = self.pooling(features)

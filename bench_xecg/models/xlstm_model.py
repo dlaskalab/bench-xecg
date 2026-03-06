@@ -179,7 +179,7 @@ class pretrainedxLSTM(BaseModel):
     def teacher_fwd(self, x, age=None, gender=None):
         return self._teacher(x, masking=False, reconstruct=False, age=age, gender=gender)
          
-    def embed_and_mask_signal_if_needed(self, x, masking, age=None, gender=None):
+    def embed_and_mask_signal_if_needed(self, x, masking:bool=False, age=None, gender=None):
         # patching
         x_patches = self.patch_embedding(x)
 
@@ -203,7 +203,7 @@ class pretrainedxLSTM(BaseModel):
                 x_patches
             )
 
-            if x_age_gen.shape[1] > 0:
+            if x_age_gen is not None:
                 age_gen_mask = self.get_random_mask_for_age_gender(x_age_gen)
                 mask_token_expanded_age_gen = self.mask_token.expand_as(x_age_gen)
                 x_age_gen = torch.where(
@@ -213,7 +213,7 @@ class pretrainedxLSTM(BaseModel):
                 )
 
         # We always concatenate embeddings if aux tokens exist
-        if x_age_gen.shape[1] > 0:
+        if x_age_gen is not None:
             x_final = torch.cat([x_age_gen, x_patches], dim=1)
             
             # 4. Concatenate Masks (Only if masking was active)
@@ -247,7 +247,7 @@ class pretrainedxLSTM(BaseModel):
         if raw_x is not None:
             # Reshape raw_x to [Batch, Num_Patches, Patch_Size, Channels]
             # to check if a specific patch consists entirely of padding (0s)
-            x_reshaped = raw_x.view(batch_size, num_patches, self.patch_size, -1)
+            x_reshaped = raw_x.reshape(batch_size, num_patches, self.patch_size, -1)
             # If the sum of absolute values in a patch is 0, it is padding
             is_padding = (x_reshaped.abs().sum(dim=(2, 3)) == 0).unsqueeze(-1)
         else:
@@ -296,10 +296,10 @@ class pretrainedxLSTM(BaseModel):
         return age_emb
 
     def remove_age_gender_embeddings(self, x, age=None, gender=None):
-        if age is not None:
-            x = x[:, :-1, :]
-        if gender is not None:
-            x = x[:, :-1, :]
+        if age is not None and self.use_age_and_gender:
+            x = x[:, 1:, :]
+        if gender is not None and self.use_age_and_gender:
+            x = x[:, 1:, :]
         return x
     
     def get_gender_token(self, gender):
@@ -309,22 +309,13 @@ class pretrainedxLSTM(BaseModel):
 
         gender_emb = self.gender_embedding(gender_idx)
         return gender_emb
-    
-    def get_age_token(self, age):
-        # from 15 to 85+ in 5 year increments,
-        age_bucket = ((age.clamp(15, 85) - 15) // 5).long()
 
-        # Shift by 1 so valid data is in range [1, 15]
-        age_bucket += 1
-
-        # Fill NaNs with 0 (the designated 'missing' index)
-        age_bucket = age_bucket.masked_fill(age.isnan(), 0)
-
-        age_emb = self.age_embedding(age_bucket)
-        return age_emb
 
     def get_age_gender_embeddings(self, x, age=None, gender=None):
         # add age and gender embeddings
+        if not self.use_age_and_gender:
+            return x
+        
         embs = torch.zeros(x.shape[0], 0, self.embedding_size, device=x.device)
         if age is not None:
             age_emb = self.get_age_token(age)
@@ -336,7 +327,10 @@ class pretrainedxLSTM(BaseModel):
             gender_emb = self.get_gender_token(gender)
             embs = torch.cat([gender_emb.unsqueeze(1), embs], dim=1)
 
-        return embs
+        if embs.shape[1] == 0:
+            return None
+        else:
+            return embs
 
     def add_reg_tokens(self, x):
         reg_tokens = self.reg_token.expand(x.shape[0], -1, -1)
@@ -373,13 +367,17 @@ class pretrainedxLSTM(BaseModel):
         
         return self.parameters()
 
-    def get_features(self, x, feature_classification=False):
+    def get_features(self, x, feature_classification=False, age=None, gender=None):
         """
         This function should be the complete forward pass apart from the classification head.
         """
-        x_emb, mask, _ = self.mask_signal_if_needed(x, False)
-        
-        cls, out = self.forward_core(x_emb, padding_mask=mask)
+                # mask the signal if needed and get the patch embeddings
+        x_emb, _ = self.embed_and_mask_signal_if_needed(x, age=age, gender=gender)
+
+        cls, out = self.forward_core(x_emb)
+
+        if not self.keep_age_gender_tokens:
+            out = self.remove_age_gender_embeddings(out, age=age, gender=gender)
 
         if feature_classification:
             return {'feat': out}
@@ -387,13 +385,13 @@ class pretrainedxLSTM(BaseModel):
         tortn = {}
 
         if self.cls_type != 'avg' and self.cls_type != 'mean':
-            avg, _ = self.pooling(out, padding_mask=mask, pooling_type='avg')
+            avg, _ = self.pooling(out, pooling_type='avg')
             tortn['avg'] = avg
         else:
             tortn['avg'] = cls
         
         if self.cls_type != 'max':
-            max, _ = self.pooling(out, padding_mask=mask, pooling_type='max')
+            max, _ = self.pooling(out, pooling_type='max')
             tortn['max'] = max
         else:
             tortn['max'] = cls

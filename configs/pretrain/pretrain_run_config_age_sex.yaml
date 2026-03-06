@@ -1,0 +1,97 @@
+# training loop hyperparameters
+epochs: 50
+lr: 0.0001
+reconstruction_lr: 0.001
+wd: 0.04
+layerwise_lr_decay: 0.9
+final_wd: 0.4
+dropout: 0.
+grad_clip: 3.
+patience: 300
+wandb_log: true
+debug: false
+monitor_metric: val_dino_loss
+monitor_mode: min
+monitor_delay_epochs: 1
+optimizer: adamw
+loss_type: mse_min_max
+strategy: sim_dino_v2
+num_workers: 128
+
+# xlstm hyperparameters
+embedding_size: 1024
+xlstm_config: ["s","s","m","m","s","s","m","m","s"] 
+# checkpoint: pretrain-xLSTM/0rgc8fun/checkpoints/epoch=49-step=504700.ckpt
+encoder_type: vanilla
+num_heads: 4
+drop_path_prob: 0
+num_reg_token: 0
+patch_embedding: linear
+bidirectional: true
+cls_type: attn_pool
+use_final_layer_norm: false
+max_length_signal: 1200
+# dataloaders
+batch_size: 512
+activation_fn: gelu
+use_teacher_student: true
+
+# augmentations
+normalize: false
+nk_clean: false
+shift_baseline_wander_in_sample: false
+shuffle_baseline_wander_in_batch: true
+random_drop_leads: 0.2
+keep_lead_II: true
+random_surrogate_prob: 0.
+random_jitter_prob: 0.1
+random_crop: 0.8
+random_change_amplitude: 0.1
+random_resample: true
+random_paper_layout: 0.
+
+mask_ratio: 0.3
+masking_type: 'block' # 'random' or 'block'
+
+# data 
+patch_size: 25
+sampling_freq: 100
+pretrain_datasets: ['code', 'chapman', 'incart'] #, 'heedb'] #, 'mimic'] #, 'ptbxl]
+
+# schedulers
+use_scheduler: true
+num_epochs_warmup: 5
+
+# teacher student config
+ema_0: 0.99
+ema_1: 1.
+start_train_head_at_epoch: 0
+
+# sim dino hyp
+lambda_code_rate: 0.1
+n_local_view: 4
+n_global_view: 2
+global_random_crop: 0.8
+local_random_crop: 0.4
+
+win_len_incart: 12
+
+# folders
+data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
+data_folder_code15: /scratch/datasets/CODE15/processed/
+labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered.csv
+data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
+
+data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
+
+data_folder_chapman: /home/datasets/ChapmanNingbo/1.0.0/
+labels_file_chapman:  /home/datasets/ChapmanNingbo/1.0.0/exams_filtered.csv
+data_folder_code: /scratch/datasets/CODE/processed/
+labels_file_code: /scratch/datasets/CODE/processed/exams_filtered.csv
+annotation_file_code: /scratch/datasets/CODE/processed/annotations.csv
+data_folder_incart: /home/datasets/incart/
+data_folder_heedb: /scratch/datasets/HEEDB/
+
+# gender age flags
+use_age_and_gender: true
+keep_age_gender_tokens: true

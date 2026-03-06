@@ -1,6 +1,6 @@
 # training loop hyp
 wandb_log: true
-wandb_group: best_heedb_xlstm_ft
+wandb_group: best_agegender_xlstm_ft
 epochs: 30
 wd: 0.1
 batch_size: 256
@@ -10,20 +10,22 @@ lr_core: 0.00001
 drop_path_prob: 0.5
 layerwise_lr_decay: 0.75 # 0.75
 
-
 linear_probing: false
 deterministic: false
-
+compile_model: false
 
 embedding_size: 1024
 encoder_type: vanilla
 xlstm_config: ["s","s","m","m","s","s","m","m","s"]
-checkpoint: pretrain-xLSTM/g7o5dy77/checkpoints/epoch=48-step=807814.ckpt
+checkpoint: pretrain-xLSTM/3nu6tun3/checkpoints/epoch=32-step=187308.ckpt
 
 use_final_layer_norm: false
 cls_normalization: null  # 'batch', 'layer', 'instance'
 
 data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
 
-
 training_pct: 1.
+
+# gender age flags
+use_age_and_gender: true
+keep_age_gender_tokens: false

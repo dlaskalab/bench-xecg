@@ -91,78 +91,102 @@ class ECGCODEDataset(PretrainDataset):
         self.annotation_file = Path(config.annotation_file_code)
         self.use_single_ecg = config.use_single_ecg
         self.load_tabular_data()
-        self.load_records()
-
-    def load_records(self):
-        self.records = self.tab_data["file_name"].values
-        print(f'CODE: sample path: {self.records[0]}')
-        print(f'CODE: loaded {len(self.records)} records')
-        print(f'CODE: number of unique patients {len(self.unique_patients)}')
 
     def __len__(self):
         return len(self.unique_patients)
-
+    
     def load_tabular_data(self):
-        # get the csv file with the tabular data
-        self.tab_data = pd.read_csv(self.labels_file)
-        self.annotation_data = pd.read_csv(self.annotation_file)
-        # set exam_id as index
-        # remove trace_file, patient_id and nn_predicted_age
-        print("tabular data fields for CODE: ", self.tab_data.head())
-        print("annotation data fields for CODE: ", self.annotation_data.head())
-
-        self.tab_data['exam_id_sliced'] = self.tab_data.parallel_apply(lambda row: row['file_name'].split('/')[1].split('TNMG')[-1], axis=1)
-        self.tab_data['exam_id'] = self.tab_data.parallel_apply(lambda row: row['exam_id_sliced'].split('_')[0], axis=1)
-
-        # merge the annotation data to the tabular data on exam_id
-        self.tab_data = self.tab_data.merge(self.annotation_data, on='exam_id', how='left')
-        self.unique_patients = self.tab_data['patient_id'].unique()
-
-        # set index patient id for faster retrieval
-        self.tab_data = self.tab_data.set_index('patient_id').sort_index()
-
-        print(f'Merged annotation data for CODE: ', self.tab_data.head())
-
-    def __getitem__(self, idx):           
-        patient = self.unique_patients[idx]
-
-        # get all the rows with specifiefied patient id and get the corresponding records
-        patient_rows = self.tab_data.loc[[patient]]
+        print("Loading tabular data...")
         
-        # records = self.tab_data[self.tab_data['patient_id'] == int(patient)]['file_name'].tolist()
+        df = pd.read_csv(self.labels_file)
+        annotation_data = pd.read_csv(self.annotation_file)
+
+        # We use regex to extract digits between TNMG and _
+        df['id_exam'] = df['file_name'].str.extract(r'TNMG(\d+)_')[0].astype(int)
+        df = df.merge(annotation_data, on='id_exam', how='left')
+
+        print("Code dataframe: \n", df.head())
+        
+        # Group by patient ID
+        grouped = df.groupby('id_patient')
+        
+        # Create a list where index i corresponds to self.unique_patients[i]
+        self.patient_records = []
+        
+        # We iterate once through groups to build the fast lookup structure
+        for _, group in grouped:
+            # Store only what is needed as numpy arrays or lists
+            record = {
+                'file_names': group['file_name'].values,
+                'ages': group['age'].values,
+                # Assuming sex is constant per patient, take first
+                'sex': 1 if group['sex'].iloc[0] == 'M' else 0 if group['sex'].iloc[0] == 'F' else np.nan
+            }
+            self.patient_records.append(record)
+
+        # This list aligns with self.patient_records indices
+        self.unique_patients = list(grouped.groups.keys())
+        
+        # Clean up heavy dataframe to free memory
+        del df
+        del annotation_data
+
+        print(f"Data loaded. Found {len(self.patient_records)} unique patients.")
+
+
+    def __getitem__(self, idx): 
+        patient_data = self.patient_records[idx]
+        
+        files = patient_data['file_names']
+        ages = patient_data['ages']
+        gender = patient_data['sex']
+                  
         num_views = self.n_global_view if not self.use_single_ecg else 1
+        total_files = len(files)
 
-        # Correct sampling
-        if len(patient_rows) > num_views:
-            patient_rows = patient_rows.sample(n=num_views)
-            
-        unique_records = patient_rows['exam_id_sliced'].unique()
-        unique_signals = { rec: wfdb.rdsamp(str(self.data_folder / rec)) for rec in unique_records }
-        signals = [ unique_signals[row.exam_id_sliced] for _, row in patient_rows.iterrows() ]
+        # Logic to pick indices
+        if total_files > num_views:
+            # Fast numpy choice without replacement
+            selected_indices = np.random.choice(total_files, num_views, replace=False)
+        else:
+            # If we need more views than files available, we might need to duplicate or take all
+            # Current logic: take all, then handle indexing below
+            selected_indices = np.arange(total_files)
 
-        ages = patient_rows['age'].values
-        first_gender = patient_rows['sex'].iloc[0]
-        gender = 1 if first_gender == 'M' else 0 if first_gender == 'F' else np.nan
+        selected_files = files[selected_indices]
+        selected_ages = ages[selected_indices]
 
-        # mapping leads in the correct position
+        # Load signals (I/O Bottleneck - see note below)
+        # Using a set/dict comprehension to ensure we don't load the same file twice 
+        # if the patient has duplicate file entries for some reason
+        unique_file_names = set(selected_files)
+        loaded_signals = { 
+            rec: wfdb.rdsamp(str(self.data_folder / rec)) 
+            for rec in unique_file_names 
+        }
+        
+        signals_raw = [loaded_signals[f] for f in selected_files]
+
+        # --- The rest of your processing logic remains mostly the same ---
         new_signals = []
-        for signal in signals:
-            s, info = signal
+        for signal_tuple in signals_raw:
+            s, info = signal_tuple
             s = self.map_leads_and_clean(s, info)
             s = self.resample_if_needed(s, info)
             new_signals.append(s)
+        
         signals = new_signals
     
         if self.global_augmentations is not None:
-            global_signals = [ self.global_augmentations(signals[i % len(signals)]) for i in range(self.n_global_view)]
-            global_ages = [ages[i % len(ages)] for i in range(self.n_global_view)]
+            global_signals = [self.global_augmentations(signals[i % len(signals)]) for i in range(self.n_global_view)]
+            global_ages = [selected_ages[i % len(selected_ages)] for i in range(self.n_global_view)]
         else:
             global_signals = signals
-            global_ages = ages
+            global_ages = selected_ages
         
         if self.local_augmentations is not None and self.n_local_view > 0:
-            local_signals = [ self.local_augmentations(signals[(i + self.n_global_view)% len(signals)]) for i in range(self.n_local_view)]
-            local_ages = [ages[(i + self.n_global_view) % len(ages)] for i in range(self.n_local_view)]
+            local_signals = [self.local_augmentations(signals[(i + self.n_global_view) % len(signals)]) for i in range(self.n_local_view)]
+            local_ages = [selected_ages[(i + self.n_global_view) % len(selected_ages)] for i in range(self.n_local_view)]
         else:
             local_signals = []
             local_ages = None

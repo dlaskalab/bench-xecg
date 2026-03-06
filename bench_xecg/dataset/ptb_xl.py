@@ -44,8 +44,10 @@ class ECGPTBXLDataset(PretrainDataset):
             self.classes = ['NORM', 'MI', 'STTC', 'CD', 'HYP']
         
         self.records = self.get_records()
+        self.ages = self.tab_data['age'].values.tolist()
+        self.genders = self.tab_data['sex'].values.tolist()
 
-        print("Tabular data fields for PTB-XL: ", self.tab_data.head())
+        print("Tabular data fields for PTB-XL: \n", self.tab_data.head())
         # for each label count the number of occurrences
         table_count = self.tab_data['diagnostic_superclass'].explode().value_counts()
         print("Number of occurrences for each label in PTB-XL: ")
@@ -89,11 +91,12 @@ class ECGPTBXLDataset(PretrainDataset):
         return len(self.records)
 
     def __getitem__(self, idx):
-        superclass_label = self.tab_data.iloc[idx]['diagnostic_superclass']
+        row = self.tab_data.iloc[idx]
+        superclass_label = row['diagnostic_superclass']
         # convert the superclass label to a one-hot encoding
         superclass_label = [1 if label in superclass_label else 0 for label in self.classes]
 
-        subclass_label = self.tab_data.iloc[idx]['diagnostic_subclass']
+        subclass_label = row['diagnostic_subclass']
         # convert the subclass label to a one-hot encoding
         subclass_label = [1 if label in subclass_label else 0 for label in self.subclasses]
   
@@ -123,12 +126,9 @@ class ECGPTBXLAgeDataset(ECGPTBXLDataset):
         return obj
 
 
-def make_collate_fn(config, downstream=False, split='train'):
+def make_collate_fn(config):
     def collate_fn(batch):
-        if downstream:
-            signals = [item['global_signals'][0] for item in batch]
-        else:
-            signals = [item['global_signals'] for item in batch]
+        signals = [item['global_signals'][0] for item in batch]
 
         superclass_labels = [item['class_label'] for item in batch]
         subclass_labels = [item['subclass_label'] for item in batch]
@@ -140,6 +140,12 @@ def make_collate_fn(config, downstream=False, split='train'):
             'class_labels': torch.stack(superclass_labels),
             'subclass_labels': torch.stack(subclass_labels),
         }
+
+        if 'global_ages' in batch[0]:
+            tortn['ages'] = torch.stack([torch.tensor(sample['global_ages'][0]) for sample in batch], dim=0)
+        if 'global_genders' in batch[0]:
+            tortn['genders'] = torch.stack([torch.tensor(sample['global_genders'][0]) for sample in batch], dim=0)
+
         if batch[0].get('age') is not None:
             tortn['age'] = torch.stack([item['age'] for item in batch])
 

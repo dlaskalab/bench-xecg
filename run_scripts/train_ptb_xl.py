@@ -33,11 +33,11 @@ def train(config, run=None, wandb=False):
     else:
         weights = None
 
-    train_dataloader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, collate_fn=ptbxl.make_collate_fn(config, downstream=True, split='train'), pin_memory=True, drop_last=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, collate_fn=ptbxl.make_collate_fn(config, downstream=True, split='val'), pin_memory=True, drop_last=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers, collate_fn=ptbxl.make_collate_fn(config), pin_memory=True, drop_last=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers, collate_fn=ptbxl.make_collate_fn(config), pin_memory=True, drop_last=False)
 
     test_dataset = ptbxl.ECGPTBXLDataset(config, split='test', global_augmentations=get_transforms(config, split='test'))
-    test_dataloader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=ptbxl.make_collate_fn(config, downstream=True, split='test'), num_workers=config.num_workers, pin_memory=True, drop_last=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=ptbxl.make_collate_fn(config), num_workers=config.num_workers, pin_memory=True, drop_last=False)
 
     base_model = utils.get_base_model(config)
     

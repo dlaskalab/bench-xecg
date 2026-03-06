@@ -189,8 +189,8 @@ class PretrainedNetwork(L.LightningModule):
         """
         When the validation loop ends, some representative plots from different classes are saved on wandb
         """
-        if self.global_step <= 1:
-            return super().on_validation_epoch_end()
+        # if self.global_step <= 1:
+        #    return super().on_validation_epoch_end()
         
         # self.eval_model_downstream_mit_bih()
         self.eval_model_downstream_ptb_xl()
@@ -469,8 +469,10 @@ class PretrainedNetwork(L.LightningModule):
         all_labels = []
         for batch in dataloader:
             signal = batch["signals"]
+            age = batch["ages"].to(self.device) if batch["ages"] is not None else None
+            gender = batch["genders"].to(self.device) if batch["genders"] is not None else None
             self.model.eval()
-            features = self.model.get_features(signal.to(self.device), feature_classification=feature_classification)
+            features = self.model.get_features(signal.to(self.device), feature_classification=feature_classification, age=age, gender=gender)
             for k, v in features.items():
                 if k not in all_features:
                     all_features[k] = []

@@ -34,8 +34,8 @@ class PretrainDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         record = str(self.records[idx])
-        age = int(self.ages[idx])
-        gender = int(self.genders[idx])
+        age = self.ages[idx]
+        gender = self.genders[idx]
 
         s, info = wfdb.rdsamp(os.path.join(self.data_folder, record))
 

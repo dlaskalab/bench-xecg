@@ -108,10 +108,13 @@ class TrainingPTB_XL(CommonTrainerDownstream):
         x = batch["signals"]
         targets = batch['class_labels']
 
+        genders = batch["genders"]
+        ages = batch["ages"]
+
         if self.linear_probing: 
             self.model.set_eval_linear_probing()
 
-        logits = self.model(x)
+        logits = self.model(x, age=ages, gender=genders)
 
         if self.task == 'multiclass':
             targets = torch.argmax(targets, dim=1)

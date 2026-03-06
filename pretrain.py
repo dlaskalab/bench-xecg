@@ -33,8 +33,8 @@ def pretrain(config, run=None, wandb=False):
     # downstream ptb_xl dataset
     ptb_xl_train_dataset = ptb_xl.ECGPTBXLDataset(config, split='train', global_augmentations=None, local_augmentations=None)
     ptb_xl_val_dataset = ptb_xl.ECGPTBXLDataset(config, split='val', global_augmentations=None, local_augmentations=None)
-    ptb_xl_train_dataloader = DataLoader(ptb_xl_train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=ptb_xl.make_collate_fn(config, split='val', downstream=True))
-    ptb_xl_val_dataloader = DataLoader(ptb_xl_val_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=ptb_xl.make_collate_fn(config, split='val', downstream=True))
+    ptb_xl_train_dataloader = DataLoader(ptb_xl_train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=ptb_xl.make_collate_fn(config))
+    ptb_xl_val_dataloader = DataLoader(ptb_xl_val_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=ptb_xl.make_collate_fn(config))
 
     # downstream mit-bih dataset
     mit_bih_train_dataset = mit_bih.ECGMITBIHDataset(config, split='train', augmentations=None)
@@ -91,7 +91,7 @@ def pretrain(config, run=None, wandb=False):
             max_epochs=config.epochs, 
             logger=wand_logger, 
             callbacks=[checkpoint_callback, early_stopping, lr_monitor], 
-            gradient_clip_val=config.grad_clip,
+            # gradient_clip_val=config.grad_clip,
             accelerator='gpu',
             devices=num_gpus,
             strategy='ddp_find_unused_parameters_true' if num_gpus > 1 else 'auto', 

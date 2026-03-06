@@ -55,8 +55,8 @@ class ECGIncartDataset(PretrainDataset):
 
     def read_comment(self, header, key):
         # for each record read the comments
-        comment = header.__dict__['comments']
-        for c in comment:
+        comments = header['comments'][0].split(' <')
+        for c in comments:
             if key in c.lower():
                 return c.split(':')[-1].strip()
         return np.nan
@@ -69,7 +69,12 @@ class ECGIncartDataset(PretrainDataset):
     @override
     def __getitem__(self, idx):
         signal, info = self.samples[idx]
-        age = int(self.read_comment(info, 'age'))
+        
+        try:
+            age = int(self.read_comment(info, 'age'))
+        except:
+            age = np.nan
+
         gender = self.read_comment(info, 'sex')
         gender = 1 if gender.lower() == 'm' else 0 if gender.lower() == 'f' else np.nan
         
