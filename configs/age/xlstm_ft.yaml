@@ -11,6 +11,7 @@ deterministic: false
 
 drop_path_prob: 0.2
 layerwise_lr_decay: 0.75
+compile_model: false
 
 embedding_size: 1024
 encoder_type: vanilla

@@ -15,6 +15,7 @@ wd: 0.1
 
 linear_probing: false
 deterministic: false
+compile_model: false
 
 embedding_size: 1024
 encoder_type: vanilla
@@ -29,3 +30,6 @@ data_folder_sleep_apnea:  /home/datasets/sleep_apnea/physionet_apnea/
 
 window_size: 60 # 30 minutes in samples
 context_size: 240
+
+use_age_and_gender: false
+keep_age_gender_tokens: false

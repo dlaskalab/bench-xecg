@@ -1,4 +1,4 @@
-wandb_log: true
+wandb_log: false
 wandb_group: best_xlstm_lp
 
 batch_size: 64

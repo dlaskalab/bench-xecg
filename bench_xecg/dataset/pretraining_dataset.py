@@ -34,8 +34,10 @@ class PretrainDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         record = str(self.records[idx])
-        age = self.ages[idx]
-        gender = self.genders[idx]
+
+       
+        age = self.ages[idx] if hasattr(self, 'ages') else None
+        gender = self.genders[idx] if hasattr(self, 'genders') else None
 
         s, info = wfdb.rdsamp(os.path.join(self.data_folder, record))
 

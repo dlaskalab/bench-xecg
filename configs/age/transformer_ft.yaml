@@ -14,7 +14,7 @@ deterministic: false
 
 embedding_size: 768
 encoder_type: transformer
-checkpoint: pretrain-xLSTM/iw88p22s/checkpoints/epoch=49-step=504700.ckpt
+# checkpoint: pretrain-xLSTM/iw88p22s/checkpoints/epoch=49-step=504700.ckpt
 
 use_final_layer_norm: false
 cls_normalization: null  # 'batch', 'layer', 'instance'

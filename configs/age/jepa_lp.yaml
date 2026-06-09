@@ -19,3 +19,4 @@ labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered.csv
 data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
 
 data_folder_cpsc2018: /home/datasets/CPSC2018/
+max_length_signal: 2500

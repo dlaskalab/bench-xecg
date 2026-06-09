@@ -262,6 +262,18 @@ class Normalize(nn.Module):
 
 
     def forward(self, signal):
+        std = signal.std(axis=(0))
+        std[std == 0] = 1 # avoid division by zero, samples with std = 0 are all zero
+        return (signal - signal.mean(axis=(0))) / std
+    
+class NormalizePadded(nn.Module):
+    """
+        Normalize the signal.
+    """
+    def __init__(self):
+        super(NormalizePadded, self).__init__()
+
+    def forward(self, signal):
         # we should have one end and one start for each lead
         mask = (np.abs(signal) >= 1e-4).astype(np.float32)
         # set false to nan values

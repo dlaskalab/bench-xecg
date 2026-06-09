@@ -15,7 +15,7 @@ import torch.nn as nn
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
-from transformer.encoder.vit import TransformerBlock
+from bench_xecg.models.transformer.encoder.vit import TransformerBlock
 
 
 __all__ = ['Transformer', 'vit_small', 'vit_base']
