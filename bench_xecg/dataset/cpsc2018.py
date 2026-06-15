@@ -41,6 +41,8 @@ class ECGCPSC2018Dataset(PretrainDataset):
             with open(os.path.join(self.data_folder, d, 'RECORDS'), 'r') as f:
                 lines = f.readlines()
             all_files += [os.path.join(d, line.strip()) for line in lines]
+
+        print('CPSC2018 all files: ', len(all_files))
         
         exams['file_name'] = all_files
         # check all files exists
@@ -49,6 +51,7 @@ class ECGCPSC2018Dataset(PretrainDataset):
         exams['diagnosis_code'] = exams.parallel_apply(lambda row: extract_diagnosis_code_path(os.path.join(self.data_folder,row['file_name'])), axis=1)
 
         self.tab_data = exams
+        print('CPSC2018 num ecgs: ', len(exams))
 
         self.records = self.tab_data['file_name'].tolist()
         if self.split == 'train':

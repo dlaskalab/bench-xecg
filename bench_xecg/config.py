@@ -70,7 +70,7 @@ def parse_config(config_file, default_config_file):
         merged_config.high_pass_filter = 0.5
         merged_config.layerwise_lr_decay = 1.
         merged_config.drop_path_prob = 0.
-        merged_config.normalize = True
+        # merged_config.normalize = True
 
     elif merged_config.use_ecg_cpc:
         merged_config.sampling_freq = 240

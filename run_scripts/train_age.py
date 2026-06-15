@@ -17,8 +17,9 @@ from bench_xecg.config import parse_config
 import argparse
 parser = argparse.ArgumentParser(description='Train a model')
 parser.add_argument('--config_file', type=str, default='configs/train_age_run_config.yaml', help='Path to the config file')
+parser.add_argument('--version', type=str, default=None)
 
-def train(config, run=None, wandb=False):
+def train(config, run=None, wandb=False, version=None):
     # set deterministic training
     if config.deterministic: L.seed_everything(42)
     
@@ -49,10 +50,9 @@ def train(config, run=None, wandb=False):
     map_idx_dataloader = {0: 'ptbxl', 1: 'mimic', 2: 'cpsc'}
     model = RegressionTrainer(model=base_model, config=config, len_train_dataset=len(train_dataset), map_idx_dataloader=map_idx_dataloader)
 
-    trainer = utils.get_trainer(config, 'train-age', wandb=wandb, run=run)
+    trainer = utils.get_trainer(config, 'train-age', wandb=wandb, run=run, version=f'version_{version}' if version is not None else None)
     trainer.fit(model=model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
     trainer.test(model=model, dataloaders=[test_ptbxl, test_mimic, test_cpsc], ckpt_path='best')
-
 
 # if main
 if __name__ == '__main__':
@@ -61,4 +61,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     config = parse_config(args.config_file, 'config_defaults/train_age_defaults.yaml')
 
-    train(config, wandb=config.wandb_log)
+    train(config, wandb=config.wandb_log, version=args.version)

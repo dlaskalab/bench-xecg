@@ -228,7 +228,7 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
         around_r_peaks = np.array([np.round((r - start) / self.freq_factor) for r in sample['around_r_peaks']])
 
         return {
-            'signal': signal,
+            'signals': signal,
             'patient_id': patient,
             'r_peak': r_peaks_mask,
             'r_peak_orig': around_r_peaks
@@ -362,7 +362,7 @@ def make_collate_fn(config, split='train'):
         baseline_shuffler = RandomSwitchBaselineWanderBatched(config.sampling_freq, 0.5)
     
     def collate_fn(batch):
-        signals = [torch.from_numpy(item['signal'].copy()).float() for item in batch]
+        signals = [torch.from_numpy(item['signals'].copy()).float() for item in batch]
         patients = [item['patient_id'] for item in batch]
         
         if 'r_peak' not in batch[0].keys(): 
@@ -399,8 +399,8 @@ def make_collate_fn(config, split='train'):
             'r_peak': r_peaks,
             'labels': labels,
             'r_peak_orig': r_peaks_orig,
-            'ages': torch.tensor([item['age'] for item in batch], dtype=torch.float32),
-            'genders': torch.tensor([item['gender'] for item in batch], dtype=torch.float32),
+            # 'ages': torch.tensor([item['age'] for item in batch], dtype=torch.float32),
+            #'genders': torch.tensor([item['gender'] for item in batch], dtype=torch.float32),
         }
 
     return collate_fn

@@ -18,7 +18,7 @@ num_workers: 32
 epochs: 20
 linear_probing: false
 precision: '16-mixed'
-compile_model: true
+compile_model: false
 
 monitor_metric: val_f1
 monitor_mode: max

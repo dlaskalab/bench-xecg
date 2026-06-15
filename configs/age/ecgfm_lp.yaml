@@ -5,7 +5,7 @@ wandb_group: best_ecgfm_lp
 lr_head: .1
 wd: 0.01
 dropout: 0.
-linear_probing: false
+linear_probing: true
 deterministic: false
 
 use_ecg_founder: true
@@ -21,4 +21,4 @@ data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
 data_folder_cpsc2018: /home/datasets/CPSC2018/
 
 max_length_signal: 5000
-normalize: false
+normalize: true

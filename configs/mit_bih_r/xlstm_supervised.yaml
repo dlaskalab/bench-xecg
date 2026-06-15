@@ -31,6 +31,6 @@ data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
 
 r_peaks_detection: true
 original_freq: 360
-plot_predictions: true
+plot_predictions: false
 win_len: 3600
 max_length_signal: 180556

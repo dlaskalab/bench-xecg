@@ -23,5 +23,14 @@ ulimit -n
 
 export TORCH_CUDA_ARCH_LIST="9.0"
 
+# export CUDA_HOME=/usr/local/cuda
+# export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$CUDA_HOME/targets/x86_64-linux/lib:$LD_LIBRARY_PATH
+# export LIBRARY_PATH=$CUDA_HOME/lib64:$CUDA_HOME/targets/x86_64-linux/lib:$LIBRARY_PATH
+
 # run script from above
-srun ~/.conda/envs/xlstm_pretrained/bin/python -u $1 --config_file $2
+
+SCRIPT=$1
+CONFIG=$2
+shift 2
+
+srun uv run "$SCRIPT" --config_file "$CONFIG" "$@"

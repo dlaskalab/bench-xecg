@@ -13,433 +13,364 @@ import matplotlib.pyplot as plt
 
 from .common_trainer import CommonTrainerDownstream
 
+def _make_binary_metrics() -> nn.ModuleDict:
+    """Return a ModuleDict with the four per-split binary classification metrics."""
+    return nn.ModuleDict({
+        "rec":   torchmetrics.classification.BinaryRecall(),
+        "f1":    torchmetrics.classification.BinaryF1Score(),
+        "acc":   torchmetrics.classification.BinaryAccuracy(),
+        "auprc": torchmetrics.classification.BinaryAveragePrecision(),
+    })
+ 
+ 
+def _make_distance_metrics(orig_freq: float, pred_freq: float) -> nn.ModuleDict:
+    """Return RPeakDistanceMetrics for the four standard threshold windows."""
+    windows = [150, 20, 10, 5]
+    return nn.ModuleDict({
+        str(w): RPeakDistanceMetric(orig_freq=orig_freq, pred_freq=pred_freq, threshold_window=w)
+        for w in windows
+    })
+
 
 class TrainingRPeak(CommonTrainerDownstream):
-    def __init__(self, model, config,  len_train_dataset, weights=None):
+    def __init__(self, model, config,  len_train_dataset, weights=None, save_results_path=None):
         super().__init__(model, config,  len_train_dataset, weights)
 
         self.sampling_freq = config.sampling_freq
         self.original_freq = config.original_freq
-        
-        self.train_rec = torchmetrics.classification.precision_recall.BinaryRecall()
-        self.valid_rec = torchmetrics.classification.precision_recall.BinaryRecall()
-        self.test_rec = torchmetrics.classification.precision_recall.BinaryRecall()
-
-        self.train_f1 = torchmetrics.classification.BinaryF1Score()
-        self.valid_f1 = torchmetrics.classification.BinaryF1Score()
-        self.test_f1 = torchmetrics.classification.BinaryF1Score()
-
-        self.train_acc = torchmetrics.classification.BinaryAccuracy()
-        self.valid_acc = torchmetrics.classification.BinaryAccuracy()
-        self.test_acc = torchmetrics.classification.BinaryAccuracy()
-
-        self.train_auprc = torchmetrics.classification.BinaryAveragePrecision()
-        self.valid_auprc = torchmetrics.classification.BinaryAveragePrecision()
-        self.test_auprc = torchmetrics.classification.BinaryAveragePrecision()
-
-        self.val_distance_150 = RPeakDistanceMetric(
-            orig_freq=self.original_freq,
-            pred_freq=self.sampling_freq,
-            threshold_window=150
-        )
-
-        self.val_distance_20 = RPeakDistanceMetric(
-            orig_freq=self.original_freq,
-            pred_freq=self.sampling_freq,
-            threshold_window=20
-        )
-
-        self.test_distance_150 = RPeakDistanceMetric(
-            orig_freq=self.original_freq,
-            pred_freq=self.sampling_freq,
-            threshold_window=150
-        )
-
-        self.test_distance_20 = RPeakDistanceMetric(
-            orig_freq=self.original_freq,
-            pred_freq=self.sampling_freq,
-            threshold_window=20
-        )
-
         self.plot_predictions = config.plot_predictions
-
-    def training_step(self, batch, _):
-        loss_r_peak_pos, r_peak_pos, r_peaks, _ = self.predict_batch(batch)
-
-        self.train_rec(r_peak_pos, r_peaks)
-        self.train_f1(r_peak_pos, r_peaks)
-        self.train_acc(r_peak_pos, r_peaks)
-        self.train_auprc(r_peak_pos, r_peaks.long())
-
-        self.log('train_loss', loss_r_peak_pos.detach().item(), prog_bar=True)
-        self.log('train_rec', self.train_rec, prog_bar=True)
-        self.log('train_f1', self.train_f1, prog_bar=True)
-        self.log('train_acc', self.train_acc, prog_bar=True)
-        self.log('train_auprc', self.train_auprc, prog_bar=True)
-
-        return loss_r_peak_pos
-
-    def validation_step(self, batch, _):
-        loss_r_peak_pos, r_peak_pos, r_peaks, r_peaks_orig = self.predict_batch(batch)
-
-        self.valid_rec(r_peak_pos, r_peaks)
-        self.valid_f1(r_peak_pos, r_peaks)
-        self.valid_acc(r_peak_pos, r_peaks)
-        self.valid_auprc(r_peak_pos, r_peaks.long())
-        self.val_distance_150.update(r_peak_pos, r_peaks_orig)
-        self.val_distance_20.update(r_peak_pos, r_peaks_orig)
-
-        self.log('val_loss', loss_r_peak_pos.detach().item(), prog_bar=True)
-        self.log('val_rec', self.valid_rec, prog_bar=True)
-        self.log('val_f1', self.valid_f1, prog_bar=True)
-        self.log('val_acc', self.valid_acc, prog_bar=True)
-        self.log('val_auprc', self.valid_auprc, prog_bar=True)
-
-        return loss_r_peak_pos
-    
-    def on_validation_epoch_end(self):
-        super().on_validation_epoch_end()
-
-        # Log the average distance metric
-        avg_distance_150 = self.val_distance_150.compute()
-        self.log('val_avg_distance', avg_distance_150['avg_distance'], prog_bar=False)
-        self.log('val_avg_distance_rp', avg_distance_150['avg_distance_rp'], prog_bar=False)
-        self.log('val_avg_total_distance', avg_distance_150['avg_total_distance'], prog_bar=True)
-        self.log('val_ppv_150', avg_distance_150['ppv'], prog_bar=False)
-        self.log('val_tpr_150', avg_distance_150['tpr'], prog_bar=False)
-        self.log('val_f1_150', avg_distance_150['f1'], prog_bar=True)
-        self.val_distance_150.reset()
-
-        avg_distance_20 = self.val_distance_20.compute()
-
-        self.log('val_ppv_20', avg_distance_20['ppv'], prog_bar=False)
-        self.log('val_tpr_20', avg_distance_20['tpr'], prog_bar=False)
-        self.log('val_f1_20', avg_distance_20['f1'], prog_bar=True)
-        self.val_distance_20.reset()
-
-        self.plot_samples_if_needed(self.trainer.val_dataloaders, step='val')
-
-    def test_step(self, batch, _):
-        loss_r_peak_pos, r_peak_pos, r_peaks, r_peaks_orig = self.predict_batch(batch)
-
-        self.test_rec = self.test_rec.to(r_peak_pos.device)
-        self.test_rec(r_peak_pos, r_peaks)
-
-        self.test_f1 = self.test_f1.to(r_peak_pos.device)
-        self.test_f1(r_peak_pos, r_peaks)
-
-        self.test_acc = self.test_acc.to(r_peak_pos.device)
-        self.test_acc(r_peak_pos, r_peaks)
-
-        self.test_auprc = self.test_auprc.to(r_peak_pos.device)
-        self.test_auprc(r_peak_pos, r_peaks.long())
-
-        self.test_distance_150 = self.test_distance_150.to(r_peak_pos.device)
-        self.test_distance_150.update(r_peak_pos, r_peaks_orig)
-
-        self.test_distance_20 = self.test_distance_20.to(r_peak_pos.device)
-        self.test_distance_20.update(r_peak_pos, r_peaks_orig)
-
-        self.log("test_loss", loss_r_peak_pos.detach().item())
-        self.log("test_rec", self.test_rec)
-        self.log("test_f1", self.test_f1)
-        self.log("test_acc", self.test_acc)
-        self.log("test_auprc", self.test_auprc)
-
-        return loss_r_peak_pos
-
-    def on_test_epoch_end(self):
-        super().on_test_epoch_end()
-
-        # Log the average distance metric
-        avg_distance_150 = self.test_distance_150.compute()
-        self.log('test_avg_distance', avg_distance_150['avg_distance'])
-        self.log('test_avg_distance_rp', avg_distance_150['avg_distance_rp'])
-        self.log('test_avg_total_distance', avg_distance_150['avg_total_distance'])
-        self.log('test_ppv_150', avg_distance_150['ppv'])
-        self.log('test_tpr_150', avg_distance_150['tpr'])
-        self.log('test_f1_150', avg_distance_150['f1'])
-
-        self.test_distance_150.reset()
-
-        avg_distance_20 = self.test_distance_20.compute()
-        self.log('test_ppv_20', avg_distance_20['ppv'])
-        self.log('test_tpr_20', avg_distance_20['tpr'])
-        self.log('test_f1_20', avg_distance_20['f1'])   
-        self.test_distance_20.reset()
-
-        self.plot_samples_if_needed(self.trainer.test_dataloaders, step='test')
+        
+        # One ModuleDict per split; Lightning registers them automatically.
+        self.train_metrics = _make_binary_metrics()
+        self.valid_metrics = _make_binary_metrics()
+        self.test_metrics  = _make_binary_metrics()
+ 
+        dist_kwargs = dict(orig_freq=self.original_freq, pred_freq=self.sampling_freq)
+        self.val_distance_metrics  = _make_distance_metrics(**dist_kwargs)
+        self.test_distance_metrics = _make_distance_metrics(**dist_kwargs)
 
 
-    def plot_samples_if_needed(self, dataloader, step='train'):
-        if self.plot_predictions:
-            try:
-                # sample_1 = self.trainer.test_dataloaders.dataset[0]
-                sample_1 = dataloader.dataset[0]
-                sample_2 = dataloader.dataset[1]
-                log_dir = self.logger.log_dir if self.logger is not None and self.logger.log_dir is not None else 'figs/'
-                img_1 = plot_r_peaks(sample_1, self.model, self.sampling_freq, self.device, log_dir, self.current_epoch, 'r_peaks_1', step=step)
-                img_2 = plot_r_peaks(sample_2, self.model, self.sampling_freq, self.device, log_dir, self.current_epoch, 'r_peaks_2', step=step)
-
-                if isinstance(self.logger, pl.loggers.WandbLogger):
-                    self.logger.log_image(key=f"reconstructions_{step}", images=[img_1, img_2])
-            except Exception as e:
-                # print stack trace
-                import traceback
-                traceback.print_exc()
-                print(f"Error plotting R-peaks: {e}")
-
-    def predict_batch(self, batch):
-        x = batch["signals"]
-        # print(f"Signal shape: {x.shape}")
-        r_peaks = batch['r_peak'] # [bs, seq_len]
-        # print(f"R-peaks shape: {r_peaks.shape}")
-        r_peaks_orig = batch['r_peak_orig']
-        # print(f"R-peaks original: {r_peaks_orig}")
-
+    # ------------------------------------------------------------------
+    # Forward / loss
+    # ------------------------------------------------------------------
+ 
+    def predict_batch(self, batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, list]:
+        """Run a forward pass and return (loss, probabilities_binary, targets, orig_peaks)."""
+        x          = batch["signals"]
+        r_peaks    = batch["r_peak"]       # [B, T]
+        r_peaks_orig = batch["r_peak_orig"]
+ 
         if self.linear_probing:
             self.model.set_eval_linear_probing()
-
-        r_peak_pos= self.model(x)
-        # print(f"R-peaks prediction shape: {r_peak_pos.shape}")
-        r_peak_pos = r_peak_pos.view(r_peak_pos.shape[0], -1)
-
-        # print(r_peak_pos.shape, r_peaks.shape)
-
-        min_len = min(r_peak_pos.shape[1], r_peaks.shape[1])
-        r_peak_pos = r_peak_pos[:, :min_len]
+ 
+        logits = self.model(x).view(x.shape[0], -1)
+ 
+        # Align lengths in case the model output differs slightly from the target.
+        min_len = min(logits.shape[1], r_peaks.shape[1])
+        logits  = logits[:, :min_len]
         r_peaks = r_peaks[:, :min_len]
+ 
+        pos_weight = (
+            torch.tensor(self.patch_size, dtype=torch.float32, device=logits.device)
+            if self.weights is not None else None
+        )
+        loss = nn.functional.binary_cross_entropy_with_logits(logits, r_peaks, pos_weight=pos_weight)
+ 
+        preds_binary = (torch.sigmoid(logits) > 0.5).float()
+        return loss, preds_binary, r_peaks, r_peaks_orig
+ 
+    # ------------------------------------------------------------------
+    # Steps
+    # ------------------------------------------------------------------
+ 
+    def training_step(self, batch, _):
+        loss, preds, targets, _ = self.predict_batch(batch)
+        self._update_and_log_metrics(self.train_metrics, preds, targets, prefix="train")
+        self.log("train_loss", loss.detach(), prog_bar=True)
+        return loss
+ 
+    def validation_step(self, batch, _):
+        loss, preds, targets, r_peaks_orig = self.predict_batch(batch)
+        self._update_and_log_metrics(self.valid_metrics, preds, targets, prefix="val")
+        self._update_distance_metrics(self.val_distance_metrics, preds, r_peaks_orig)
+        self.log("val_loss", loss.detach(), prog_bar=True)
+        return loss
+ 
+    def test_step(self, batch, _):
+        loss, preds, targets, r_peaks_orig = self.predict_batch(batch)
+        self._update_and_log_metrics(self.test_metrics, preds, targets, prefix="test")
+        self._update_distance_metrics(self.test_distance_metrics, preds, r_peaks_orig)
+        self.log("test_loss", loss.detach())
+        return loss
+ 
+    # ------------------------------------------------------------------
+    # Epoch-end hooks
+    # ------------------------------------------------------------------
+ 
+    def on_validation_epoch_end(self):
+        super().on_validation_epoch_end()
+        self._log_distance_metrics(self.val_distance_metrics, prefix="val")
+        self.plot_samples_if_needed(self.trainer.val_dataloaders, step="val")
+ 
+    def on_test_epoch_end(self):
+        super().on_test_epoch_end()
+        self._log_distance_metrics(self.test_distance_metrics, prefix="test")
+        self.plot_samples_if_needed(self.trainer.test_dataloaders, step="test")
 
-        # print(f"Prediction: {r_peak_pos.shape}, Target: {r_peaks.shape}, weights: {self.weights}")
 
-        pos_weight = torch.tensor(self.patch_size, dtype=torch.float32).to(r_peak_pos.device) if self.weights is not None else None
-        loss_r_peak_pos = nn.functional.binary_cross_entropy_with_logits(r_peak_pos, r_peaks, pos_weight=pos_weight)
-
-        r_peak_pos = torch.sigmoid(r_peak_pos)  # Apply sigmoid to get probabilities
-        r_peak_pos = (r_peak_pos > 0.5).float()
-
-        return loss_r_peak_pos, r_peak_pos, r_peaks, r_peaks_orig
+    # ------------------------------------------------------------------
+    # Metric helpers
+    # ------------------------------------------------------------------
+ 
+    def _update_and_log_metrics(
+        self,
+        metrics: nn.ModuleDict,
+        preds: torch.Tensor,
+        targets: torch.Tensor,
+        prefix: str,
+    ) -> None:
+        metrics["rec"](preds, targets)
+        metrics["f1"](preds, targets)
+        metrics["acc"](preds, targets)
+        metrics["auprc"](preds, targets.long())
+ 
+        prog_bar_keys = {"rec", "f1", "acc", "auprc"}
+        for name, metric in metrics.items():
+            self.log(f"{prefix}_{name}", metric, prog_bar=(name in prog_bar_keys))
+ 
+    @staticmethod
+    def _update_distance_metrics(
+        distance_metrics: nn.ModuleDict,
+        preds: torch.Tensor,
+        r_peaks_orig: list,
+    ) -> None:
+        for metric in distance_metrics.values():
+            metric.update(preds, r_peaks_orig)
+ 
+    def _log_distance_metrics(self, distance_metrics: nn.ModuleDict, prefix: str) -> None:
+        primary_window = "150"
+        for window_str, metric in distance_metrics.items():
+            result = metric.compute()
+            is_primary = window_str == primary_window
+            if is_primary:
+                self.log(f"{prefix}_avg_distance",       result["avg_distance"],       prog_bar=False)
+                self.log(f"{prefix}_avg_distance_rp",    result["avg_distance_rp"],    prog_bar=False)
+                self.log(f"{prefix}_avg_total_distance", result["avg_total_distance"], prog_bar=True)
+            self.log(f"{prefix}_ppv_{window_str}", result["ppv"], prog_bar=False)
+            self.log(f"{prefix}_tpr_{window_str}", result["tpr"], prog_bar=False)
+            self.log(f"{prefix}_f1_{window_str}",  result["f1"],  prog_bar=is_primary)
+            metric.reset()
+ 
+    # ------------------------------------------------------------------
+    # Plotting
+    # ------------------------------------------------------------------
+ 
+    def plot_samples_if_needed(self, dataloader, step: str = "train") -> None:
+        if not self.plot_predictions:
+            return
+        try:
+            log_dir = (
+                self.logger.log_dir
+                if self.logger is not None and self.logger.log_dir is not None
+                else "figs/"
+            )
+            for idx in range(2):
+                sample = dataloader.dataset[idx]
+                path = plot_r_peaks(
+                    sample, self.model, self.sampling_freq,
+                    self.device, log_dir, self.current_epoch,
+                    f"r_peaks_{idx + 1}", step=step,
+                )
+                if isinstance(self.logger, pl.loggers.WandbLogger):
+                    self.logger.log_image(key=f"reconstructions_{step}", images=[path])
+        except Exception:
+            import traceback
+            traceback.print_exc()
 
 
 # given all the heartbeats in the batch, find the closest predicted r-peak to each heartbeat and calculate a time distance
 
+# ---------------------------------------------------------------------------
+# Custom TorchMetric
+# ---------------------------------------------------------------------------
+ 
 class RPeakDistanceMetric(Metric):
     """
-    Custom TorchMetric to calculate the average distance between predicted R-peaks 
-    and actual R-peaks in time domain.
-    
-    This metric handles frequency conversion and calculates the temporal distance
-    between predictions and ground truth R-peaks.
+    Computes temporal distance and detection statistics between predicted
+    R-peaks and ground-truth R-peaks.
+ 
+    Distances are computed in seconds after converting both sets of indices
+    from their respective sampling frequencies.  A prediction is counted as a
+    true positive when it falls within ``threshold_window`` milliseconds of a
+    ground-truth peak (symmetric window, so ± threshold_window / 2).
     """
-    
+ 
     def __init__(
         self,
         orig_freq: float,
         pred_freq: float,
+        threshold_window: float,          # milliseconds; required
         dist_sync_on_step: bool = False,
-        process_group: Optional = None,
-        dist_sync_fn = None,
-        threshold_window: Optional[float] = None
+        process_group: Optional[object] = None,
+        dist_sync_fn=None,
     ):
-        """
-        Args:
-            orig_freq: Original sampling frequency of the signal (Hz)
-            pred_freq: Prediction sampling frequency (Hz) 
-        """
         super().__init__(
             dist_sync_on_step=dist_sync_on_step,
             process_group=process_group,
             dist_sync_fn=dist_sync_fn,
         )
-        
+ 
         self.orig_freq = orig_freq
         self.pred_freq = pred_freq
-        # threshold in milliseconds -> convert to seconds and divide by two to have a window around the r-peak
-        self.threshold_window = (threshold_window / 1000) / 2
-
-        # Metric state
-        self.add_state("total_distance", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        # Half-window in seconds used for matching predictions to ground truth.
+        self.half_window_s: float = (threshold_window / 1000.0) / 2.0
+ 
+        self.add_state("total_distance",    default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total_distance_rp", default=torch.tensor(0.0), dist_reduce_fx="sum")
-        self.add_state("num_predictions", default=torch.tensor(0), dist_reduce_fx="sum")
-
-        self.add_state("true_positives", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("true_negatives", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("false_positives", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("false_negatives", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("positives", default=torch.tensor(0), dist_reduce_fx="sum")
-
+        self.add_state("num_predictions",   default=torch.tensor(0),   dist_reduce_fx="sum")
+        self.add_state("true_positives",    default=torch.tensor(0),   dist_reduce_fx="sum")
+        self.add_state("false_positives",   default=torch.tensor(0),   dist_reduce_fx="sum")
+        self.add_state("positives",         default=torch.tensor(0),   dist_reduce_fx="sum")
+ 
+    # ------------------------------------------------------------------
+ 
     def update(self, preds: torch.Tensor, r_peaks_orig: list) -> None:
         """
-        Update metric state with new predictions and original R-peaks.
-        
         Args:
-            preds: Predicted R-peaks [batch_size, sequence_length] with 1s at R-peaks
-            r_peaks_orig: Original R-peak indices for this batch [batch_size, max_peaks] 
-                         (use -1 or 0 for padding where no peak exists)
-            batch_start_indices: Starting index in original frequency for each batch sample [batch_size]
+            preds:        Binary predictions [B, T] with 1 at predicted R-peak positions.
+            r_peaks_orig: Per-sample ground-truth peak indices in *original* frequency.
+                          Padding values should be NaN.
         """
-        batch_size = preds.shape[0]
-        
-        total_distance = 0.0
-        total_distance_rp = 0.0
-        total_predictions = 0
-
-        true_positives = 0
-        false_positives = 0
-        positives = 0
-        
-        for i in range(batch_size):
-            # Extract peak indices from predictions
-            # I can create a list where I store the time indices of the r-peaks in seconds instead of index
-            # print(f"R-peaks original: {r_peaks_orig[i]}")
-            list_r_peaks = torch.tensor([int(r) / self.orig_freq for r in r_peaks_orig[i] if not torch.isnan(r)]).to(preds.device)
-            # print(f"List R-peaks secodns: {list_r_peaks}")
-            # get the indices of non-zero preds
-            # print(f"Preds: {preds[i]}")
-            pred_peaks = torch.nonzero(preds[i], as_tuple=False).squeeze(-1).to(preds.device)
-            # print(f"Predicted R-peaks indices: {pred_peaks}")
-            list_pred_peaks = pred_peaks.float() / self.pred_freq  # Convert to seconds 
-            # print(f"Predicted R-peaks seconds: {list_pred_peaks}")
-            # print(f"Predicted R-peaks seconds: {list_pred_peaks}")
-
-            # calculate the distance for all the r-peaks in the batch
-            if len(list_pred_peaks) == 0:
+        for pred_row, orig_peaks in zip(preds, r_peaks_orig):
+            gt_times   = self._gt_times(orig_peaks, pred_row.device)
+            pred_times = self._pred_times(pred_row)
+ 
+            n_gt   = gt_times.numel()
+            n_pred = pred_times.numel()
+ 
+            self.positives       += n_gt
+            self.num_predictions += n_pred
+ 
+            if n_pred == 0 or n_gt == 0:
+                # All ground-truth peaks are unmatched; distances from predictions
+                # to ground truth are undefined (or infinite) — skip accumulation.
                 continue
-
-            if list_pred_peaks.numel() == 0 or list_r_peaks.numel() == 0:
-                # Se uno dei due è vuoto, assegna tensori vuoti per evitare crash
-                min_distances = torch.tensor([]).to(list_pred_peaks)
-                min_dist_r_peaks = torch.ones_like(list_r_peaks) * preds[i].shape[0] 
-                matched_rpeaks = torch.tensor([]).to(list_pred_peaks)
-            else:
-                distances = torch.abs(list_pred_peaks.unsqueeze(1) - list_r_peaks.unsqueeze(0))
-                # print(f"Distances: {distances.shape}")
-                # Find the minimum distance for each predicted peak
-
-                # for every prediction I have a measure of how far is from the nearest r-peak
-                min_distances, _ = torch.min(distances, dim=1) 
-                # print(f"Min distances: {min_distances.shape}")
-                min_dist_r_peaks, _ = torch.min(distances, dim=0)  # For each original R-peak, find the closest prediction
-                # print(f"Min distances: {min_distances.shape}")
-                # Get predicted-to-R-peak assignments
-                matched_mask = min_distances <= self.threshold_window  # shape [num_preds]
-                matched_rpeaks = distances[matched_mask].argmin(dim=1)  # Get the indices of the closest R-peaks for each prediction
-
-
-            total_distance += min_distances.sum().item()
-            total_distance_rp += min_dist_r_peaks.sum().item()
-            total_predictions += len(list_pred_peaks)
-
-
-            # Unique matches → equivalent to set-based count
-            true_positives += len(torch.unique(matched_rpeaks))
-            if list_pred_peaks.numel() != 0:
-                false_positives += (~matched_mask).sum().item()
-            positives += len(list_r_peaks)
-
-        self.total_distance += total_distance
-        self.total_distance_rp += total_distance_rp
-        self.num_predictions += total_predictions
-        self.true_positives += true_positives
-        self.false_positives += false_positives
-        self.positives += positives
-    
+ 
+            dist_matrix = torch.abs(pred_times.unsqueeze(1) - gt_times.unsqueeze(0))  # [P, G]
+ 
+            # Distance from each *prediction* to its nearest ground-truth peak.
+            min_dist_pred, nearest_gt_idx = dist_matrix.min(dim=1)   # [P]
+            # Distance from each *ground-truth* peak to its nearest prediction.
+            min_dist_gt, _                = dist_matrix.min(dim=0)    # [G]
+ 
+            self.total_distance    += min_dist_pred.sum()
+            self.total_distance_rp += min_dist_gt.sum()
+ 
+            # True positives: unique ground-truth peaks matched within the window.
+            matched_pred_mask = min_dist_pred <= self.half_window_s   # [P]
+            matched_gt_ids    = nearest_gt_idx[matched_pred_mask]     # indices into gt_times
+            self.true_positives  += matched_gt_ids.unique().numel()
+            self.false_positives += (~matched_pred_mask).sum()
+ 
+    # ------------------------------------------------------------------
+ 
     def compute(self) -> dict:
-        """
-        Compute the final metric values.
-        
-        Returns:
-            Dictionary containing:
-            - avg_distance: Average distance between predicted and actual R-peaks (seconds)
-            - match_rate: Percentage of predictions that found valid matches
-            - total_predictions: Total number of predictions
-            - total_matches: Total number of valid matches
-        """
-        
-        avg_distance = (self.total_distance / self.num_predictions) * 1000 # convert to milliseconds
-        avg_distance_rp = (self.total_distance_rp / self.num_predictions) * 1000 # convert to milliseconds
-
-        avg_tot_dist = (avg_distance + avg_distance_rp) / 2
-
-        tpr = self.true_positives / self.positives if self.positives > 0 else 0
-        ppv = self.true_positives / (self.true_positives + self.false_positives) if (self.true_positives + self.false_positives) > 0 else 0
-
-        f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0
-
+        avg_distance    = (self.total_distance    / self.num_predictions) * 1000  # → ms
+        avg_distance_rp = (self.total_distance_rp / self.positives)       * 1000  # → ms
+        avg_total       = (avg_distance + avg_distance_rp) / 2
+ 
+        tp  = self.true_positives.float()
+        fp  = self.false_positives.float()
+        pos = self.positives.float()
+ 
+        tpr = tp / pos             if pos > 0          else torch.tensor(0.0)
+        ppv = tp / (tp + fp)       if (tp + fp) > 0    else torch.tensor(0.0)
+        f1  = 2 * ppv * tpr / (ppv + tpr) if (ppv + tpr) > 0 else torch.tensor(0.0)
+ 
         return {
-            "avg_distance": avg_distance,
-            "avg_distance_rp": avg_distance_rp,
-            "avg_total_distance": avg_tot_dist,
-            "total_predictions": self.num_predictions,
-            "total_matches": self.true_positives,
-            "ppv": ppv,
-            "tpr": tpr,
-            "f1": f1
+            "avg_distance":       avg_distance,
+            "avg_distance_rp":    avg_distance_rp,
+            "avg_total_distance": avg_total,
+            "total_predictions":  self.num_predictions,
+            "total_matches":      self.true_positives,
+            "ppv":  ppv,
+            "tpr":  tpr,
+            "f1":   f1,
         }
-    
-    def reset(self):
-        self.total_distance = torch.tensor(0.0)
-        self.total_distance_rp = torch.tensor(0.0)
-        self.num_predictions = torch.tensor(0)
-        self.true_positives = torch.tensor(0)
-        self.false_positives = torch.tensor(0)
-        self.positives = torch.tensor(0)
-        self.false_negatives = torch.tensor(0)
-        self.true_negatives = torch.tensor(0)
-        return super().reset()
+ 
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+ 
+    def _gt_times(self, orig_peaks, device: torch.device) -> torch.Tensor:
+        """Convert raw ground-truth peak indices to seconds, dropping NaN padding."""
+        return torch.tensor(
+            [int(r) / self.orig_freq for r in orig_peaks if not torch.isnan(r)],
+            dtype=torch.float32,
+            device=device,
+        )
+ 
+    def _pred_times(self, pred_row: torch.Tensor) -> torch.Tensor:
+        """Return predicted R-peak positions in seconds."""
+        indices = torch.nonzero(pred_row, as_tuple=False).squeeze(-1).float()
+        return indices / self.pred_freq
 
 
-
-def plot_r_peaks(sample, model, sampling_freq, device, logdir, epoch, name, step='train'):
+def plot_r_peaks(
+    sample,
+    model,
+    sampling_freq: float,
+    device: torch.device,
+    logdir: str,
+    epoch: int,
+    name: str,
+    step: str = "train",
+) -> str:
+    """Plot one ECG sample with predicted and ground-truth R-peaks overlaid."""
+    max_samples = 10 * int(sampling_freq)
+ 
     with torch.no_grad():
-        signal = sample['signals'].to(device).unsqueeze(0)
-        r_peaks = sample['r_peak'].to(device).unsqueeze(0)
-        # print(f"Signal shape: {signal.shape}")
-
-        # Get the original R-peaks
-        # print(f"R-peaks shape: {r_peaks.shape}")
-
-        # Get the predicted R-peaks
-        r_peak_pos = model(signal)
-        r_peak_pos = r_peak_pos.view(r_peak_pos.shape[0], -1)
-        r_peak_pos = torch.sigmoid(r_peak_pos) > 0.5
-
-        # consider max 2000 time samples for plotting
-        if signal.shape[1] > 10 * sampling_freq:
-            signal = signal[:, :10 * sampling_freq, :]
-            r_peak_pos = r_peak_pos[:, :10 * sampling_freq]
-            r_peaks = r_peaks[:, :10 * sampling_freq]
-
-        # print(f"Predicted R-peaks shape: {r_peak_pos.shape}")
-
-        # Plot the original and predicted R-peaks
-        fig, ax = plt.subplots(figsize=(25, 5))
-        to_plot = signal[:, :, 1].cpu().squeeze().numpy() if signal.ndim > 2 else signal.cpu().squeeze().numpy()
-
-        ax.plot(to_plot)
-        # Plot vertical lines for predicted R-peaks
-        pred_peaks = np.where(r_peak_pos.cpu().squeeze().numpy())[0]
-        for peak in pred_peaks:
-            ax.axvline(peak, color='darkorange', linestyle='solid', linewidth=1.5, label='Predicted R-peak' if peak == pred_peaks[0] else "", alpha=0.5)
-        
-        gts = np.where(r_peaks.cpu().squeeze().numpy())[0]
-        for gt in gts:
-            ax.axvline(gt, color='darkgreen', linestyle='--', linewidth=1.5, label='Ground Truth R-peak' if gt == gts[0] else "", alpha=0.8)
-
-        # ax.set_title(f'R-peaks Prediction - {name}')
-        ax.set_xlabel('Timepoints', fontdict={'size': 24})
-        ax.set_ylabel('Amplitude', fontdict={'size': 24})
-
-        ax.tick_params(axis='x', labelsize=20)
-        ax.tick_params(axis='y', labelsize=20)
-
-        ax.legend(fontsize=24)
-        plt.tight_layout()
-
-        # mkdir if it does not exist
-        os.makedirs(f'{logdir}/epoch_{epoch}/{step}', exist_ok=True)
-
-        path = f'{logdir}/epoch_{epoch}/{step}/r_peaks_{name}.png'
-        plt.savefig(path, dpi=300)
-        plt.close()
-        return path
+        signal  = sample["signals"].to(device).unsqueeze(0)
+        r_peaks = sample["r_peak"].to(device).unsqueeze(0)
+ 
+        logits   = model(signal).view(signal.shape[0], -1)
+        pred_bin = torch.sigmoid(logits) > 0.5
+ 
+        # Limit to 10 seconds for readability.
+        signal   = signal[:, :max_samples, :]
+        pred_bin = pred_bin[:, :max_samples]
+        r_peaks  = r_peaks[:, :max_samples]
+ 
+    # Select a single lead for display (lead index 1, or the only lead).
+    ecg = (
+        signal[:, :, 1].cpu().squeeze().numpy()
+        if signal.ndim > 2 and signal.shape[-1] > 1
+        else signal.cpu().squeeze().numpy()
+    )
+ 
+    pred_indices = np.where(pred_bin.cpu().squeeze().numpy())[0]
+    gt_indices   = np.where(r_peaks.cpu().squeeze().numpy())[0]
+ 
+    fig, ax = plt.subplots(figsize=(25, 5))
+    ax.plot(ecg)
+ 
+    for i, peak in enumerate(pred_indices):
+        ax.axvline(peak, color="darkorange", linestyle="solid",  linewidth=1.5,
+                   label="Predicted R-peak" if i == 0 else "", alpha=0.5)
+    for i, peak in enumerate(gt_indices):
+        ax.axvline(peak, color="darkgreen",  linestyle="dashed", linewidth=1.5,
+                   label="Ground Truth R-peak" if i == 0 else "", alpha=0.8)
+ 
+    ax.set_xlabel("Timepoints", fontdict={"size": 24})
+    ax.set_ylabel("Amplitude",  fontdict={"size": 24})
+    ax.tick_params(axis="x", labelsize=20)
+    ax.tick_params(axis="y", labelsize=20)
+    ax.legend(fontsize=24)
+    plt.tight_layout()
+ 
+    out_dir = os.path.join(logdir, f"epoch_{epoch}", step)
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f"{name}.png")
+    plt.savefig(path, dpi=300)
+    plt.close()
+    return path

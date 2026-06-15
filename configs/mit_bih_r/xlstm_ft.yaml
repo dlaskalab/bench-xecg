@@ -1,10 +1,10 @@
 wandb_log: true
 wandb_group: best_xlstm_ft
 
-batch_size: 96
+batch_size: 128
 
-lr_head: 0.001
-lr_core: 0.001
+lr_head: 0.003
+lr_core: 0.003
 
 layerwise_lr_decay: 0.75
 drop_path_prob: 0.5
@@ -15,7 +15,7 @@ linear_probing: false
 deterministic: false
 
 skip_majority_class_samples: true
-use_class_weights: true
+use_class_weights: false
 split_val_by_patient: true
 
 embedding_size: 1024
@@ -31,7 +31,6 @@ data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
 
 r_peaks_detection: true
 original_freq: 360
-plot_predictions: true
+plot_predictions: false
 win_len: 3600
 context_len: 0
-max_length_signal: 180556
