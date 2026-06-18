@@ -1,6 +1,6 @@
 # training loop hyp
 wandb_log: true
-wandb_group: plot #best_ecgcpc_ft
+wandb_group: best_ecgcpc_ft
 
 wd: 0.001
 batch_size: 8
@@ -21,5 +21,5 @@ max_length_signal: 2400
 
 data_folder_high_intensity: /home/datasets/ECG_high_intensity_exercise
 r_peaks_detection: true
-plot_predictions: true
+plot_predictions: false
 normalize: false

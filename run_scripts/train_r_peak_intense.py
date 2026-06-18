@@ -13,8 +13,9 @@ from bench_xecg.config import parse_config, set_num_classes_r_peaks
 
 parser = argparse.ArgumentParser(description='Train a model')
 parser.add_argument('--config_file', type=str, default='configs/train_high_intensity_run_config.yaml', help='Path to the config file')
+parser.add_argument('--version', type=str, default=None)
 
-def train(config, run=None, wandb=False):
+def train(config, run=None, wandb=False, version=None):
     # set deterministic training
     if config.deterministic: pl.seed_everything(42)
 
@@ -45,8 +46,8 @@ def train(config, run=None, wandb=False):
     base_model = utils.get_base_model(config, feature_classification=True)
 
     model = TrainingRPeak(model=base_model, config=config, len_train_dataset=len(train_dataset), weights=weights)
-
-    trainer = utils.get_trainer(config, "train-exercise-r-peak", wandb=wandb, run=run)
+    trainer = utils.get_trainer(config, "train-exercise-r-peak", wandb=wandb, run=run, version=f'version_{version}' if version is not None else None)
+    
     trainer.fit(model=model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
     trainer.test(model=model, dataloaders=test_dataloader, ckpt_path='best')
 

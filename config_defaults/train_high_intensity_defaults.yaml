@@ -40,7 +40,7 @@ xlstm_config: ["s","s","m","m","s","s","m","m","s"]
 activation_fn: "gelu"
 cls_type: avg
 embedding_size: 1024
-use_final_layer_norm: true
+use_final_layer_norm: false
 patch_embedding: linear
 encoder_type: vanilla
 bidirectional: true

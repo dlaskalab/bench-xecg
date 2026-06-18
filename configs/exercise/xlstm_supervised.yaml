@@ -28,6 +28,6 @@ patch_embedding: linear
 data_folder_high_intensity: /home/datasets/ECG_high_intensity_exercise
 
 r_peaks_detection: true
-plot_predictions: true
+plot_predictions: false
 
 max_length_signal: 2000

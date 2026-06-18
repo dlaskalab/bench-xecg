@@ -327,11 +327,12 @@ def plot_r_peaks(
     step: str = "train",
 ) -> str:
     """Plot one ECG sample with predicted and ground-truth R-peaks overlaid."""
-    max_samples = 10 * int(sampling_freq)
+    max_samples = 20 * int(sampling_freq)
  
     with torch.no_grad():
-        signal  = sample["signals"].to(device).unsqueeze(0)
-        r_peaks = sample["r_peak"].to(device).unsqueeze(0)
+        print(sample.keys())
+        signal  = torch.tensor(sample["signals"]).unsqueeze(0).to(device)
+        r_peaks = torch.tensor(sample["r_peak"]).unsqueeze(0).to(device)
  
         logits   = model(signal).view(signal.shape[0], -1)
         pred_bin = torch.sigmoid(logits) > 0.5

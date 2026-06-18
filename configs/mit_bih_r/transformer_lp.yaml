@@ -16,7 +16,6 @@ checkpoint: pretrained_models/transformer.ckpt
 
 skip_majority_class_samples: true
 use_class_weights: true
-split_val_by_patient: true
 
 split_val_by_patient: true
 win_len: 500
