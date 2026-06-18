@@ -5,6 +5,8 @@ import neurokit2 as nk
 import numpy as np
 import torch
 from pandarallel import pandarallel
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 pandarallel.initialize(progress_bar=False, verbose=0)
 
@@ -14,7 +16,7 @@ jepa_leads =  ['i', 'ii', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
 mappings = { 'di': 'i', 'dii': 'ii', 'diii': 'iii' }
 
 class PretrainDataset(torch.utils.data.Dataset):
-    def __init__(self, config, split='train', global_augmentations=None, local_augmentations=None):
+    def __init__(self, config, split='train', global_augmentations=None, local_augmentations=None, use_cache=False):
         self.leads = config.leads if not config.use_ecg_jepa else jepa_leads
         self.leads = [l.lower() for l in self.leads] # ensure leads are lowercase
         print('Using leads :', self.leads)
@@ -27,23 +29,47 @@ class PretrainDataset(torch.utils.data.Dataset):
         self.sampling_freq = config.sampling_freq
         self.nk_clean = config.nk_clean        
         self.max_length_signal = config.max_length_signal
+        self.use_cache = config.use_cache
+        self.cached_data = {}
 
+    def load_cache_if_needed(self):
+        if self.use_cache:
+            print("Preloading dataset into memory...")
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                futures = list(tqdm(
+                    executor.map(self._load_record, range(len(self.records))),
+                    total=len(self.records),
+                    desc="Caching"
+                ))
+            self.cached_data = dict(futures)
+            print(f"Cached {len(self.cached_data)} records in RAM")
+
+    def _load_record(self, idx):
+        record = str(self.records[idx])
+        age = self.ages[idx] if hasattr(self, 'ages') else None
+        gender = self.genders[idx] if hasattr(self, 'genders') else None
+        s, info = wfdb.rdsamp(os.path.join(self.data_folder, record))
+        s = self.map_leads_and_clean(s, info)
+        s = self.resample_if_needed(s, info)
+        return idx, (s, age, gender)
 
     def __len__(self):
         return len(self.records)
 
     def __getitem__(self, idx):
-        record = str(self.records[idx])
+        if self.cached_data and idx in self.cached_data:
+            s, age, gender = self.cached_data[idx]
+        else:
+            record = str(self.records[idx])
+        
+            age = self.ages[idx] if hasattr(self, 'ages') else None
+            gender = self.genders[idx] if hasattr(self, 'genders') else None
 
-       
-        age = self.ages[idx] if hasattr(self, 'ages') else None
-        gender = self.genders[idx] if hasattr(self, 'genders') else None
+            s, info = wfdb.rdsamp(os.path.join(self.data_folder, record))
 
-        s, info = wfdb.rdsamp(os.path.join(self.data_folder, record))
-
-        # mapping leads in the correct position
-        s = self.map_leads_and_clean(s, info)
-        s = self.resample_if_needed(s, info)
+            # mapping leads in the correct position
+            s = self.map_leads_and_clean(s, info)
+            s = self.resample_if_needed(s, info)
 
         if self.global_augmentations is not None:
             global_signals = [ self.global_augmentations(s).copy() for _ in range(self.n_global_view)]

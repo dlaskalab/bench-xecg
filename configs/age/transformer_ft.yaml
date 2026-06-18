@@ -14,20 +14,16 @@ deterministic: false
 
 embedding_size: 768
 encoder_type: transformer
-checkpoint: pretrained_models/transformer.ckpt
+checkpoint: /home/hpcusers/q036rl/MIT-BIH_ecg_arrhytmia/pretrained_models/transformer.ckpt
 
 use_final_layer_norm: false
 cls_normalization: null  # 'batch', 'layer', 'instance'
 
-data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
-
-
-data_folder_code15: /scratch/datasets/CODE15/processed/
-labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered.csv
-
-data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
-
-data_folder_cpsc2018: /home/datasets/CPSC2018/
+data_folder_mimic: /groups/dlaskalab/mimic-iv-ecg/raw/
+data_folder_code15: /groups/dlaskalab/CODE15/processed/
+labels_file_code15: /groups/dlaskalab/CODE15/processed/exams_filtered.csv
+data_folder_ptbxl: /groups/dlaskalab/ptb-xl/raw/1.0.3/records500/
+data_folder_cpsc2018: /groups/dlaskalab/CPSC2018/
 
 
 max_length_signal: 1000

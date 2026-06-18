@@ -12,7 +12,7 @@ from .pretraining_dataset import PretrainDataset
 
 
 class ECGCODE15Dataset(PretrainDataset):
-    def __init__(self, config, global_augmentations=None, local_augmentations=None):
+    def __init__(self, config, global_augmentations=None, local_augmentations=None, use_cache=False):
         """
         Args:
             records (list): List of records of ECG traces
@@ -46,16 +46,17 @@ class ECGCODE15Dataset(PretrainDataset):
 
 
 class ECGCODE15AgeDataset(ECGCODE15Dataset):
-    def __init__(self, config, split='train', global_augmentations=None, local_augmentations=None):
+    def __init__(self, config, split='train', global_augmentations=None, local_augmentations=None, use_cache=False):
         """
         Args:
             records (list): List of records of ECG traces
         """
-        super().__init__(config, global_augmentations=global_augmentations, local_augmentations=local_augmentations)
+        super().__init__(config, global_augmentations=global_augmentations, local_augmentations=local_augmentations, use_cache=use_cache)
+        self.load_cache_if_needed()
 
     def __getitem__(self, idx):
         obj = super().__getitem__(idx)
-        obj['age'] = self.tab_data.loc[self.records[idx], 'age']
+        obj['age'] = obj['global_ages'][0] # self.tab_data.loc[self.records[idx], 'age']
         return obj
     
 class ECGCODE15MortalityDataset(ECGCODE15Dataset):

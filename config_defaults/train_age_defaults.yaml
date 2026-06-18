@@ -78,3 +78,5 @@ data_folder_ptbxl: /media/Volume/data/PTB-XL/records500/
 data_folder_mimic: /media/Volume/data/MIMIC_IV/
 
 data_folder_cpsc2018: /media/Volume/data/CPSC2018/
+
+use_cache: true

@@ -1,4 +1,6 @@
 
+import os
+
 import yaml
 
 
@@ -85,6 +87,10 @@ def parse_config(config_file, default_config_file):
 
     if merged_config.r_peaks_detection:
         merged_config.num_classes = merged_config.patch_size
+
+    max_cpus = int(os.getenv("SLURM_CPUS_PER_TASK", merged_config.num_workers))
+    merged_config.num_workers = min(merged_config.num_workers, max_cpus)
+    print(f'Using {max_cpus} CPUs...')
     
     return merged_config
 
