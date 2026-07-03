@@ -183,9 +183,6 @@ class pretrainedxLSTM(BaseModel):
         # patching
         x_patches = self.patch_embedding(x)
 
-        # add age and gender embeddings
-        x_age_gen = self.get_age_gender_embeddings(x_patches, age=age, gender=gender)
-
         generated_mask = None
         if masking:
             # 4. Calculate mask based on the EMBEDDINGS, not the raw signal
@@ -203,7 +200,8 @@ class pretrainedxLSTM(BaseModel):
                 x_patches
             )
 
-            if x_age_gen is not None:
+            if self.use_age_and_gender:
+                x_age_gen = self.get_age_gender_embeddings(x_patches, age=age, gender=gender) 
                 age_gen_mask = self.get_random_mask_for_age_gender(x_age_gen)
                 mask_token_expanded_age_gen = self.mask_token.expand_as(x_age_gen)
                 x_age_gen = torch.where(
@@ -213,7 +211,8 @@ class pretrainedxLSTM(BaseModel):
                 )
 
         # We always concatenate embeddings if aux tokens exist
-        if x_age_gen is not None:
+        if self.use_age_and_gender:
+            x_age_gen = self.get_age_gender_embeddings(x_patches, age=age, gender=gender) 
             x_final = torch.cat([x_age_gen, x_patches], dim=1)
             
             # 4. Concatenate Masks (Only if masking was active)
@@ -312,10 +311,7 @@ class pretrainedxLSTM(BaseModel):
 
 
     def get_age_gender_embeddings(self, x, age=None, gender=None):
-        # add age and gender embeddings
-        if not self.use_age_and_gender:
-            return x
-        
+
         embs = torch.zeros(x.shape[0], 0, self.embedding_size, device=x.device)
         if age is not None:
             age_emb = self.get_age_token(age)

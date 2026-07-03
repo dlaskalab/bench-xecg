@@ -20,15 +20,15 @@ class xLSTMClassification(pretrainedxLSTM):
         )
 
     def forward(self, x, age=None, gender=None):
-        # padding_mask = self.get_padding_mask(x)
-
+        padding_mask = self.get_padding_mask(x)
+        
         if self.linear_probing:
             with torch.no_grad():
                 x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
-                cls, _ = self.forward_core(x) #, padding_mask)
+                cls, _ = self.forward_core(x, padding_mask)
         else:  
             x, _ = self.embed_and_mask_signal_if_needed(x, masking=False, age=age, gender=gender)
-            cls, _ = self.forward_core(x) #, padding_mask)
+            cls, _ = self.forward_core(x, padding_mask)
 
         res = self.head(cls)
         return res

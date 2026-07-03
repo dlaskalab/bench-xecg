@@ -10,6 +10,7 @@ dependencies = [
     "ipykernel>=7.2.0",
     "iterative-stratification>=0.1.9",
     "joblib>=1.5.3",
+    "kaleido>=1.3.0",
     "lifelines>=0.30.0",
     "lightning>=2.6.1",
     "nbformat>=5.10.4",

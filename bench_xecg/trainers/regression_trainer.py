@@ -24,27 +24,37 @@ class RegressionTrainer(CommonTrainerDownstream):
         # --- MAE ---
         self.train_mae = torchmetrics.MeanAbsoluteError()
         self.valid_mae = torchmetrics.MeanAbsoluteError()
-        self.test_mae  = torchmetrics.MeanAbsoluteError()
+        self.test_mae = nn.ModuleList([
+            torchmetrics.MeanAbsoluteError() for _ in range(len(map_idx_dataloader))
+        ]) if map_idx_dataloader is not None else torchmetrics.MeanAbsoluteError()
 
         # --- RSMAPE ---
         self.train_rsmape_0 = RobustMeanAbsoluteError(epsilon=0)
         self.valid_rsmape_0 = RobustMeanAbsoluteError(epsilon=0)
-        self.test_rsmape_0  = RobustMeanAbsoluteError(epsilon=0)
+        self.test_rsmape_0 = nn.ModuleList([
+            RobustMeanAbsoluteError(epsilon=0) for _ in range(len(map_idx_dataloader))
+        ]) if map_idx_dataloader is not None else RobustMeanAbsoluteError(epsilon=0)
 
         # --- MSE ---
         self.train_mse = torchmetrics.MeanSquaredError()
         self.valid_mse = torchmetrics.MeanSquaredError()
-        self.test_mse  = torchmetrics.MeanSquaredError()
+        self.test_mse = nn.ModuleList([
+            torchmetrics.MeanSquaredError() for _ in range(len(map_idx_dataloader))
+        ]) if map_idx_dataloader is not None else torchmetrics.MeanSquaredError()
 
         # --- R² ---
         self.train_r2 = torchmetrics.R2Score()
         self.valid_r2 = torchmetrics.R2Score()
-        self.test_r2  = torchmetrics.R2Score()
+        self.test_r2 = nn.ModuleList([
+            torchmetrics.R2Score() for _ in range(len(map_idx_dataloader))
+        ]) if map_idx_dataloader is not None else torchmetrics.R2Score()
 
         # --- Pearson ---
         self.train_pearson = torchmetrics.PearsonCorrCoef()
         self.valid_pearson = torchmetrics.PearsonCorrCoef()
-        self.test_pearson  = torchmetrics.PearsonCorrCoef()
+        self.test_pearson = nn.ModuleList([
+            torchmetrics.PearsonCorrCoef() for _ in range(len(map_idx_dataloader))
+        ]) if map_idx_dataloader is not None else torchmetrics.PearsonCorrCoef()
 
         # Buffers for CSV export (only populated when save_results_path is set)
         self._test_preds:   list[Tensor] = []
@@ -92,22 +102,7 @@ class RegressionTrainer(CommonTrainerDownstream):
         return loss
             
     def test_step(self, batch, batch_idx=0, dataloader_idx=0):
-        # Detect start of a new dataset
-        if batch_idx == 0:
-            print(f"Resetting metrics for dataloader {dataloader_idx}")
-            self.test_mae.reset()
-            self.test_mse.reset()
-            self.test_rsmape_0.reset()
-            self.test_r2.reset()
-            self.test_pearson.reset()
-
         loss, preds, targets = self.predict_batch(batch)
-        
-        self.test_mae(preds, targets)
-        self.test_mse(preds, targets)
-        self.test_rsmape_0(preds, targets)
-        self.test_r2(preds, targets)
-        self.test_pearson(preds, targets)
 
         if self.save_results_path is not None:
             # records = batch['record']
@@ -122,21 +117,32 @@ class RegressionTrainer(CommonTrainerDownstream):
 
         # if the number of dataloader is bigger than 1
         if len(self.trainer.test_dataloaders) > 1:
-            dataloader_idx = self.map_idx_dataloader[dataloader_idx] if self.map_idx_dataloader else dataloader_idx
+            self.test_mae[dataloader_idx](preds, targets)
+            self.test_mse[dataloader_idx](preds, targets)
+            self.test_rsmape_0[dataloader_idx](preds, targets)
+            self.test_r2[dataloader_idx](preds, targets)
+            self.test_pearson[dataloader_idx](preds, targets)
 
-            self.log(f'test_mae_{dataloader_idx}',      self.test_mae,        prog_bar=True)
-            self.log(f'test_mse_{dataloader_idx}',      self.test_mse,        prog_bar=True)
-            self.log(f'test_rsmape_0_{dataloader_idx}', self.test_rsmape_0,   prog_bar=False)
+            dataloader_name = self.map_idx_dataloader[dataloader_idx] if self.map_idx_dataloader else dataloader_idx
+            self.log(f'{dataloader_name}/test_mae',      self.test_mae[dataloader_idx],        prog_bar=True)
+            self.log(f'{dataloader_name}/test_mse',      self.test_mse[dataloader_idx],        prog_bar=True)
+            self.log(f'{dataloader_name}/test_rsmape',   self.test_rsmape_0[dataloader_idx],   prog_bar=False)
 
-            self.log(f'test_r2_{dataloader_idx}',       self.test_r2,         prog_bar=False)
-            self.log(f'test_pearson_{dataloader_idx}',  self.test_pearson,    prog_bar=False)
+            self.log(f'{dataloader_name}/test_r2',       self.test_r2[dataloader_idx],         prog_bar=False)
+            self.log(f'{dataloader_name}/test_pearson',  self.test_pearson[dataloader_idx],    prog_bar=False)
 
-            self.log(f'test_loss_{dataloader_idx}',     loss.detach().item(), prog_bar=True)
+            self.log(f'{dataloader_name}/test_loss',     loss.detach().item(), prog_bar=True)
             
         # if the number of dataloader is 1
         else:
-            self.log('test_mae',        self.valid_mae,       prog_bar=True)
-            self.log('test_mse',        self.valid_mse,       prog_bar=True)
+            self.test_mae(preds, targets)
+            self.test_mse(preds, targets)
+            self.test_rsmape_0(preds, targets)
+            self.test_r2(preds, targets)
+            self.test_pearson(preds, targets)
+
+            self.log('test_mae',        self.test_mae,       prog_bar=True)
+            self.log('test_mse',        self.test_mse,       prog_bar=True)
             self.log('test_rsmape_0',   self.test_rsmape_0,   prog_bar=False)
 
             self.log('test_r2',         self.test_r2,         prog_bar=False)
@@ -144,8 +150,7 @@ class RegressionTrainer(CommonTrainerDownstream):
 
             self.log('test_loss',       loss.detach().item(), prog_bar=True)
             
-        return loss  
-   
+        return loss     
     
     def predict_batch(self, batch):
         x = batch["signals"]
@@ -193,6 +198,7 @@ class RegressionTrainer(CommonTrainerDownstream):
         self._test_preds.clear()
         self._test_targets.clear()
         self._test_dl_ids.clear()
+        self._dl_names.clear()
 
 
 class RobustMeanAbsoluteError(Metric):

@@ -15,15 +15,11 @@ use_ecg_founder: true
 drop_path_prob: 0.
 layerwise_lr_decay: 0.
 
-data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
-
-
-data_folder_code15: /scratch/datasets/CODE15/processed/
-labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered.csv
-
-data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
-
-data_folder_cpsc2018: /home/datasets/CPSC2018/
+data_folder_mimic: /groups/dlaskalab/mimic-iv-ecg/raw/
+data_folder_code15: /groups/dlaskalab/CODE15/processed/
+labels_file_code15: /groups/dlaskalab/CODE15/processed/exams_filtered.csv
+data_folder_ptbxl: /groups/dlaskalab/ptb-xl/raw/1.0.3/records500/
+data_folder_cpsc2018: /groups/dlaskalab/CPSC2018/
 
 max_length_signal: 5000
 normalize: false

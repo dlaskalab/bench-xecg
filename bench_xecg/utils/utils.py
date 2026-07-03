@@ -89,7 +89,7 @@ def get_base_model(config, feature_classification=False, sleep_apnea=False, mode
                         new_state_dict[k] = v.permute(0, 2, 1)
 
             # remove the fc layer
-            new_state_dict = {k: v for k, v in new_state_dict.items() if 'fc' not in k}
+            new_state_dict = {k: v for k, v in new_state_dict.items() if 'fc' not in k and 'head' not in k}
             message = base_model.load_state_dict(new_state_dict, strict=False) 
             print(message) 
 

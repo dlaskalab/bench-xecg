@@ -12,7 +12,7 @@ deterministic: false
 
 embedding_size: 768
 encoder_type: transformer
-checkpoint: pretrain-xLSTM/iw88p22s/checkpoints/epoch=49-step=504700.ckpt
+checkpoint: pretrained_models/transformer.ckpt
 cls_type: avg
 
 data_folder_sleep_apnea:  /home/datasets/sleep_apnea/physionet_apnea/

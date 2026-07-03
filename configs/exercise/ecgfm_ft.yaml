@@ -1,6 +1,6 @@
 # training loop hyp
 wandb_log: true
-wandb_group: plot # best_ecgfm_ft
+wandb_group: best_ecgfm_ft
 
 epochs: 30
 
@@ -18,6 +18,6 @@ use_ecg_founder: true
 data_folder_high_intensity: /home/datasets/ECG_high_intensity_exercise
 
 r_peaks_detection: true
-plot_predictions: true
+plot_predictions: false
 
 max_length_signal: 5000

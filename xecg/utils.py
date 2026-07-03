@@ -5,9 +5,9 @@ from torch import nn
 from xlstm import FeedForwardConfig, mLSTMLayerConfig, mLSTMBlockConfig, sLSTMLayerConfig, sLSTMBlockConfig, xLSTMBlockStackConfig, xLSTMBlockStack
 from xlstm.xlstm_large import xLSTMLargeConfig
 from xlstm.xlstm_large.model import xLSTMLargeBlockStack
-from models.modules import *
+from bench_xecg.models.modules import *
 import os
-from transformer import encoder
+import bench_xecg.models.transformer.encoder as encoder
 
 
 def get_normalization_layer(config, embedding_size=None):

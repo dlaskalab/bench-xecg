@@ -115,7 +115,7 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
         for patient, signal, header, annotations, r_peaks, age, gender in results:
             if self.sampling_freq != header.fs:
                 signal = nk.signal_resample(signal, sampling_rate=header.fs, desired_sampling_rate=self.sampling_freq, method='FFT')
-                self.r_peaks[patient] = [(int(np.round(r_peak * self.freq_factor)), label) for r_peak, label in r_peaks]
+                self.r_peaks[patient] = [(int(np.round(r_peak * self.freq_factor)), label, r_peak) for r_peak, label in r_peaks]
         
             self.signals[patient] = signal
             self.headers[patient] = header
@@ -131,9 +131,15 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
             len_signal = len(self.signals[patient])
 
             if self.r_peaks_detection:
-                # len signal and win_len are in the same frequency domain, r_peaks are not
+                # len signal and win_len are in the same frequency domain (resampled - 100)
                 for i in range(0, len_signal, self.win_len * 2):
-                    current_r_peaks = [r for r, _ in r_peaks if i <= r < i + self.win_len * 2]
+                    # current_r_peaks = [r for r, _, _ in r_peaks if i <= r < i + self.win_len * 2]
+                    
+                    # save both original and resampled
+                    current_r_peaks = [
+                        (r_tgt, r_orig) for r_tgt, _, r_orig in r_peaks 
+                        if i // self.freq_factor <= r_orig < (i + self.win_len * 2) // self.freq_factor
+                    ]
 
                     samples.append({
                         'start': i,
@@ -173,7 +179,7 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
                 #print(f"sample_len: {sample_len}, win_len: {self.win_len}, freq_factor: {self.freq_factor}")
                 for i in range(0, len_signal, self.win_len * 2):
                     # for every window
-                    around_r_peaks = [(r, l) for r, l in r_peaks if i <= r < i + self.win_len * 2 - 1]
+                    around_r_peaks = [(r, l) for r, l, _ in r_peaks if i <= r < i + self.win_len * 2 - 1]
                     # print(f"i: {i}, win_len: {self.win_len}, sample_len: {sample_len}, around_r_peaks: {around_r_peaks}")
                     samples.append({
                         'patient': patient,
@@ -218,17 +224,26 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
         signal = self.signals[patient][start:end]
 
         r_peaks_mask = np.zeros(signal.shape[0], dtype=np.float32)
-        indexes = np.round(np.array(sample['around_r_peaks'])).astype(int) - start
+
+        if len(sample['around_r_peaks']) > 0:
+            indexes = np.array([r_tgt for r_tgt, r_orig in sample['around_r_peaks']]) - start
+            r_peaks_mask[indexes] = 1
+
+        # indexes = np.round(np.array(sample['around_r_peaks'])).astype(int) - start
         # print(f"indexes: {indexes}, start: {start}, freq_factor: {self.freq_factor}")
-        r_peaks_mask[indexes] = 1
+        # r_peaks_mask[indexes] = 1
+
         signal = self.filter_leads(signal, header.__dict__['sig_name'])
         if self.augmentations is not None:
             signal = self.augmentations(signal)
 
-        around_r_peaks = np.array([np.round((r - start) / self.freq_factor) for r in sample['around_r_peaks']])
+        orig_start = np.round(start / self.freq_factor)
+        around_r_peaks = np.array([r_orig - orig_start for _, r_orig in sample['around_r_peaks']])
+
+        # around_r_peaks = np.array([np.round((r - start) / self.freq_factor) for r in sample['around_r_peaks']])
 
         return {
-            'signal': signal,
+            'signals': signal,
             'patient_id': patient,
             'r_peak': r_peaks_mask,
             'r_peak_orig': around_r_peaks
@@ -327,7 +342,7 @@ class ECGMITBIHDatasetSingleHB(ECGMITBIHDataset):
     def load_samples(self, subset):
         self.samples = []
         for patient in tqdm(self.patients, desc="Processing patients"):
-            for i, r_peak in enumerate(self.r_peaks[patient]):
+            for i, r_peak, _ in enumerate(self.r_peaks[patient]):
                 if r_peak[0] > 0:
                     signal = self.signals[patient]
                     self.samples.append({
@@ -362,7 +377,7 @@ def make_collate_fn(config, split='train'):
         baseline_shuffler = RandomSwitchBaselineWanderBatched(config.sampling_freq, 0.5)
     
     def collate_fn(batch):
-        signals = [torch.from_numpy(item['signal'].copy()).float() for item in batch]
+        signals = [torch.from_numpy(item['signals'].copy()).float() for item in batch]
         patients = [item['patient_id'] for item in batch]
         
         if 'r_peak' not in batch[0].keys(): 
@@ -399,8 +414,8 @@ def make_collate_fn(config, split='train'):
             'r_peak': r_peaks,
             'labels': labels,
             'r_peak_orig': r_peaks_orig,
-            'ages': torch.tensor([item['age'] for item in batch], dtype=torch.float32),
-            'genders': torch.tensor([item['gender'] for item in batch], dtype=torch.float32),
+            # 'ages': torch.tensor([item['age'] for item in batch], dtype=torch.float32),
+            #'genders': torch.tensor([item['gender'] for item in batch], dtype=torch.float32),
         }
 
     return collate_fn

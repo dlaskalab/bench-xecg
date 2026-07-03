@@ -12,11 +12,10 @@ deterministic: false
 
 embedding_size: 768
 encoder_type: transformer
-checkpoint: pretrain-xLSTM/iw88p22s/checkpoints/epoch=49-step=504700.ckpt
+checkpoint: pretrained_models/transformer.ckpt
 
 skip_majority_class_samples: true
 use_class_weights: true
-split_val_by_patient: true
 
 split_val_by_patient: true
 win_len: 500
@@ -26,4 +25,4 @@ data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
 
 r_peaks_detection: true
 original_freq: 360
-plot_predictions: true
+plot_predictions: false

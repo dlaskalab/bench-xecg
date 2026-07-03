@@ -4,7 +4,7 @@ from xlstm.xlstm_large import xLSTMLargeConfig
 from xlstm.xlstm_large.model import xLSTMLargeBlockStack
 
 from .modules import *
-import bench_xecg.models.transformer.encoder as encoder
+import bench_xecg.models.transformer.encoder.transformer as encoder
 
 class Permute(nn.Module):
     def __init__(self, *dims):

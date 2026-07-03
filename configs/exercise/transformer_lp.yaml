@@ -12,13 +12,13 @@ deterministic: false
 
 embedding_size: 768
 encoder_type: transformer
-checkpoint: pretrain-xLSTM/iw88p22s/checkpoints/epoch=49-step=504700.ckpt
-
-split_val_by_patient: true
+checkpoint: /home/q036rl/MIT-BIH_ecg_arrhytmia/train-exercise-r_peak/b4z0574f/checkpoints/epoch=29-step=300.ckpt # pretrained_models/transformer.ckpt
 
 data_folder_high_intensity: /home/datasets/ECG_high_intensity_exercise
 
 r_peaks_detection: true
-plot_predictions: true
+plot_predictions: false
 
 max_length_signal: 1000
+use_final_layer_norm: true
+cls_normalization: null

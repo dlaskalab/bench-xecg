@@ -26,5 +26,5 @@ win_len: 1200
 
 data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
 r_peaks_detection: true
-plot_predictions: true
+plot_predictions: false
 normalize: false

@@ -6,7 +6,7 @@ lr_head: .001
 wd: 0.1
 epochs: 30
 
-linear_probing: false
+linear_probing: true
 deterministic: false
 batch_size: 256
 num_workers: 64
@@ -21,4 +21,4 @@ data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
 
 r_peaks_detection: true
 original_freq: 360
-plot_predictions: true
+plot_predictions: false
