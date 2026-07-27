@@ -116,7 +116,9 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
             if self.sampling_freq != header.fs:
                 signal = nk.signal_resample(signal, sampling_rate=header.fs, desired_sampling_rate=self.sampling_freq, method='FFT')
                 self.r_peaks[patient] = [(int(np.round(r_peak * self.freq_factor)), label, r_peak) for r_peak, label in r_peaks]
-        
+            else:
+                self.r_peaks[patient] = [(r_peak, label, r_peak) for r_peak, label in r_peaks]
+
             self.signals[patient] = signal
             self.headers[patient] = header
             self.ages[patient] = age
@@ -160,7 +162,7 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
                                 'start': max(0, r_peak[0] - self.win_len - self.context_len),
                                 'end': min(r_peak[0] + self.win_len + self.context_len, len_signal),
                                 # 'r_peak': r_peak[0],
-                                'around_r_peaks': [(r, l) for r, l in r_peaks if r_peak[0] - self.win_len + 1 <= r < r_peak[0] + self.win_len - 1],
+                                'around_r_peaks': [(r, l) for r, l, _ in r_peaks if r_peak[0] - self.win_len + 1 <= r < r_peak[0] + self.win_len - 1],
                             })
                             skipped = 0
                         else:
@@ -173,7 +175,7 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
                             'patient': patient,
                             'start': max(0, r_peak[0] - self.win_len - self.context_len),
                             'end': min(r_peak[0] + self.win_len + self.context_len, len_signal),
-                            'around_r_peaks': [(r, l) for r, l in r_peaks if r_peak[0] - self.win_len + 1 <= r < r_peak[0] + self.win_len - 1],
+                            'around_r_peaks': [(r, l) for r, l, _ in r_peaks if r_peak[0] - self.win_len + 1 <= r < r_peak[0] + self.win_len - 1],
                         })
             else:
                 #print(f"sample_len: {sample_len}, win_len: {self.win_len}, freq_factor: {self.freq_factor}")
@@ -342,7 +344,7 @@ class ECGMITBIHDatasetSingleHB(ECGMITBIHDataset):
     def load_samples(self, subset):
         self.samples = []
         for patient in tqdm(self.patients, desc="Processing patients"):
-            for i, r_peak, _ in enumerate(self.r_peaks[patient]):
+            for i, (r_peak, _, _) in enumerate(self.r_peaks[patient]):
                 if r_peak[0] > 0:
                     signal = self.signals[patient]
                     self.samples.append({
