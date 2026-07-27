@@ -37,7 +37,7 @@ activation_fn: gelu
 use_teacher_student: true
 
 # augmentations
-normalize: true
+normalize: false
 nk_clean: false
 shift_baseline_wander_in_sample: false
 shuffle_baseline_wander_in_batch: true
@@ -46,8 +46,8 @@ keep_lead_II: true
 random_surrogate_prob: 0.
 random_jitter_prob: 0.1
 random_crop: 0.8
-random_change_amplitude: 0.1
-random_resample: true
+random_change_amplitude: 0.2
+random_resample: false
 
 mask_ratio: 0.3
 masking_type: 'block' # 'random' or 'block'
@@ -76,7 +76,7 @@ local_random_crop: 0.4
 win_len_incart: 12
 
 # folders
-data_folder_mit: /media/Volume/data/MIT-BHI/data/
+data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
 data_folder_code15: /scratch/datasets/CODE15/processed/
 labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered.csv
 data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
