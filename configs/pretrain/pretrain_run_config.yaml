@@ -15,7 +15,7 @@ monitor_mode: min
 monitor_delay_epochs: 1
 optimizer: adamw
 loss_type: mse_min_max
-strategy: masked_token_prediction
+strategy: sim_dino_v2
 num_workers: 128
 
 # xlstm hyperparameters
@@ -87,5 +87,6 @@ data_folder_chapman: /home/datasets/ChapmanNingbo/1.0.0/
 labels_file_chapman:  /home/datasets/ChapmanNingbo/1.0.0/exams_filtered.csv
 data_folder_code: /scratch/datasets/CODE/processed/
 labels_file_code: /scratch/datasets/CODE/processed/exams_filtered.csv
+annotation_file_code: /scratch/datasets/CODE/processed/annotations.csv
 data_folder_incart: /home/datasets/incart/
 data_folder_heedb: /scratch/datasets/HEEDB/
