@@ -64,11 +64,14 @@ def plot_reconstruction(sample, model, patch_size, freq, device, logdir, epoch, 
                 else:
                     ax_mask = mask[i]
 
+                # mask is at patch resolution; expand to sample resolution to match x's x-axis
+                ax_mask = ax_mask.detach().cpu().repeat_interleave(patch_size)
+
                 ax.fill_between(
                     list(range(x.shape[1])),
                     orig_signal[..., i].min().item(),
                     orig_signal[..., i].max().item(),
-                    where=ax_mask.detach().cpu(),
+                    where=ax_mask,
                     color='red',
                     alpha=0.3,
                     label='mask'
