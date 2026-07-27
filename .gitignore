@@ -29,3 +29,6 @@ cauchy_mult.egg-info
 logs_lightning
 .vscode
 models
+*.egg_info
+__pycache__
+uv.lock
