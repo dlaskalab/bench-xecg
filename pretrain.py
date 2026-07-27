@@ -58,7 +58,8 @@ def pretrain(config, run=None, wandb=False):
     if config.checkpoint != None:
         model = PretrainedNetwork.load_from_checkpoint(
             checkpoint_path=config.checkpoint,
-            model=base_model, 
+            weights_only=False,
+            model=base_model,
             len_train_dataset=len_train_dataset, 
             config=config, 
             ptb_xl_train_dataloader=ptb_xl_train_dataloader, 
