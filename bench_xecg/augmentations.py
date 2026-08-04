@@ -352,6 +352,11 @@ class RandomCrop(nn.Module):
         target_length = int(np.floor(signal_length * self.crop_size))
         # Randomly sample the starting point for the cropping (cut-off)
 
+        if signal_length <= target_length:
+            # not enough real (non-padding) signal to satisfy the crop ratio
+            # (e.g. an all-zero/degenerate record) - skip cropping
+            return signal
+
         start_idx = np.random.randint(low=start, high=signal_length - target_length + start)
         # Crop the signal
 
