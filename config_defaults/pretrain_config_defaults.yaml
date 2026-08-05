@@ -7,6 +7,7 @@ final_wd: 0.0001
 dropout: 0.3
 grad_clip: 0.5
 precision: 16-mixed  
+log_gradients: true
 
 # optimize and scheduler
 optimizer: adamw

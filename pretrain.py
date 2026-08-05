@@ -94,7 +94,8 @@ def pretrain(config, run=None, wandb=False):
     if wandb:
         lr_monitor = LearningRateMonitor(logging_interval='step')
         wand_logger = WandbLogger(project="pretrain-xLSTM", experiment=run, config=config)
-        wand_logger.watch(model, log='gradients')
+        if config.log_gradients:
+            wand_logger.watch(model, log='gradients')
         trainer = L.Trainer(
             # num_sanity_val_steps=0,
             max_epochs=config.epochs, 
