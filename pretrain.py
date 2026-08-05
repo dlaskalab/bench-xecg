@@ -31,16 +31,24 @@ def pretrain(config, run=None, wandb=False):
     train_dataset,val_dataset = load_datasets(config)
 
     # downstream ptb_xl dataset
-    ptb_xl_train_dataset = ptb_xl.ECGPTBXLDataset(config, split='train', global_augmentations=None, local_augmentations=None)
-    ptb_xl_val_dataset = ptb_xl.ECGPTBXLDataset(config, split='val', global_augmentations=None, local_augmentations=None)
-    ptb_xl_train_dataloader = DataLoader(ptb_xl_train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=ptb_xl.make_collate_fn(config))
-    ptb_xl_val_dataloader = DataLoader(ptb_xl_val_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=ptb_xl.make_collate_fn(config))
+    if config.data_folder_ptbxl is not None:
+        ptb_xl_train_dataset = ptb_xl.ECGPTBXLDataset(config, split='train', global_augmentations=None, local_augmentations=None)
+        ptb_xl_val_dataset = ptb_xl.ECGPTBXLDataset(config, split='val', global_augmentations=None, local_augmentations=None)
+        ptb_xl_train_dataloader = DataLoader(ptb_xl_train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=ptb_xl.make_collate_fn(config))
+        ptb_xl_val_dataloader = DataLoader(ptb_xl_val_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=ptb_xl.make_collate_fn(config))
+    else:
+        ptb_xl_train_dataloader = None
+        ptb_xl_val_dataloader = None
 
     # downstream mit-bih dataset
-    mit_bih_train_dataset = mit_bih.ECGMITBIHDataset(config, split='train', augmentations=None)
-    mit_bih_val_dataset = mit_bih.ECGMITBIHDataset(config, split='val', augmentations=None)
-    mit_bih_train_dataloader = DataLoader(mit_bih_train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=mit_bih.make_collate_fn(config))
-    mit_bih_val_dataloader = DataLoader(mit_bih_val_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=mit_bih.make_collate_fn(config))
+    if config.data_folder_mit is not None:
+        mit_bih_train_dataset = mit_bih.ECGMITBIHDataset(config, split='train', augmentations=None)
+        mit_bih_val_dataset = mit_bih.ECGMITBIHDataset(config, split='val', augmentations=None)
+        mit_bih_train_dataloader = DataLoader(mit_bih_train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=mit_bih.make_collate_fn(config))
+        mit_bih_val_dataloader = DataLoader(mit_bih_val_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=mit_bih.make_collate_fn(config))
+    else:
+        mit_bih_train_dataloader = None
+        mit_bih_val_dataloader = None
 
     # keep only 10% of the dataset
     if config.debug: 

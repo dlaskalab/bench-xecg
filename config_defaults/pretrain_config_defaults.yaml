@@ -73,13 +73,14 @@ masking_type: 'random' # 'random' or 'block'
 leads: ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
 # dataset folders
-data_folder_mit: /media/Volume/data/MIT-BHI/data/
 win_len: 1800
 data_folder_code15: /media/Volume/data/CODE15/processed/
 labels_file_code15: /media/Volume/data/CODE15/exams.csv
 data_folder_mimic: /media/Volume/data/MIMIC_IV/
 
-data_folder_ptbxl: /media/Volume/data/PTB-XL/records500/
+data_folder_mit: null
+data_folder_ptbxl: null
+
 data_folder_chapman: /media/Volume/data/ChapmanNingbo/1.0.0/
 labels_file_chapman: /media/Volume/data/ChapmanNingbo/1.0.0/exams_filtered.csv
 data_folder_incart: /media/Volume/data/incart/

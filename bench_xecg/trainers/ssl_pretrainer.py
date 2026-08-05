@@ -192,7 +192,7 @@ class PretrainedNetwork(L.LightningModule):
         # if self.global_step <= 1:
         #    return super().on_validation_epoch_end()
         
-        # self.eval_model_downstream_mit_bih()
+        self.eval_model_downstream_mit_bih()
         self.eval_model_downstream_ptb_xl()
 
         if self.logger is None or not self.plot_samples:
