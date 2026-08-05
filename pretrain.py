@@ -97,11 +97,10 @@ def pretrain(config, run=None, wandb=False):
         if config.log_gradients:
             wand_logger.watch(model, log='gradients')
         trainer = L.Trainer(
-            # num_sanity_val_steps=0,
             max_epochs=config.epochs, 
             logger=wand_logger, 
             callbacks=[checkpoint_callback, early_stopping, lr_monitor], 
-            # gradient_clip_val=config.grad_clip,
+            gradient_clip_val=config.grad_clip,
             accelerator='gpu',
             devices=num_gpus,
             strategy='ddp_find_unused_parameters_true' if num_gpus > 1 else 'auto', 
@@ -110,7 +109,6 @@ def pretrain(config, run=None, wandb=False):
         )
     else:
         trainer = L.Trainer(
-            # num_sanity_val_steps=0,
             logger=False,
             max_epochs=config.epochs, 
             callbacks=[checkpoint_callback, early_stopping], 
