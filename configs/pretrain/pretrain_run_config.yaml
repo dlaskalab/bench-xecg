@@ -6,7 +6,7 @@ wd: 0.04
 layerwise_lr_decay: 0.9
 final_wd: 0.4
 dropout: 0.
-grad_clip: 3.
+grad_clip: 0.5
 patience: 300
 wandb_log: true
 debug: false
