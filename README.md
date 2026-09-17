@@ -97,6 +97,5 @@ If you use our BenchECG code, xECG model or just find our code helpful, please c
   urldate = {2026-09-17},
   langid = {english},
   keywords = {Cardiology,Computational biology and bioinformatics,Health care,Mathematics and computing},
-  file = {/Users/riccardo/Zotero/storage/X3RH3MM3/Lunelli et al. - 2026 - BenchECG and xECG a benchmark and baseline for ECG foundation models.pdf}
 }
 ```
