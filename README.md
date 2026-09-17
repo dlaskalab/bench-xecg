@@ -2,7 +2,7 @@
 
 Official repository of "BenchECG and xECG: a benchmark and baseline for ECG foundation models"
 
-📄 Paper: [arXiv](https://arxiv.org/abs/2509.10151)
+📄 Paper: [npj Digital Medicine](https://www.nature.com/articles/s41746-026-03196-y)
 
 🤗 Model: [HuggingFace](https://huggingface.co/riccardolunelli/xECG_base_model_v1)
 
@@ -83,13 +83,20 @@ In no event shall the authors or copyright holders be liable for any claim, dama
 
 If you use our BenchECG code, xECG model or just find our code helpful, please cite:
 ```
-@misc{lunelli2025benchecgxecgbenchmarkbaseline,
-      title={BenchECG and xECG: a benchmark and baseline for ECG foundation models}, 
-      author={Riccardo Lunelli and Angus Nicolson and Samuel Martin Pröll and Sebastian Johannes Reinstadler and Axel Bauer and Clemens Dlaska},
-      year={2025},
-      eprint={2509.10151},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2509.10151}, 
+@article{lunelliBenchECGXECGBenchmark2026,
+  title = {{{BenchECG}} and {{xECG}}: A Benchmark and Baseline for {{ECG}} Foundation Models},
+  shorttitle = {{{BenchECG}} and {{xECG}}},
+  author = {Lunelli, Riccardo and Nicolson, Angus and Pröll, Samuel Martin and Reinstadler, Sebastian Johannes and Bauer, Axel and Dlaska, Clemens},
+  date = {2026-09-14},
+  journaltitle = {npj Digital Medicine},
+  shortjournal = {Npj Digit. Med.},
+  publisher = {Nature Publishing Group},
+  issn = {2398-6352},
+  doi = {10.1038/s41746-026-03196-y},
+  url = {https://www.nature.com/articles/s41746-026-03196-y},
+  urldate = {2026-09-17},
+  langid = {english},
+  keywords = {Cardiology,Computational biology and bioinformatics,Health care,Mathematics and computing},
+  file = {/Users/riccardo/Zotero/storage/X3RH3MM3/Lunelli et al. - 2026 - BenchECG and xECG a benchmark and baseline for ECG foundation models.pdf}
 }
 ```
