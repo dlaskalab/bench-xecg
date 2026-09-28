@@ -27,78 +27,78 @@ if __name__ == '__main__':
     with open(args.config_file, 'r') as f:
         config = yaml.safe_load(f)
 
-    # # ----------- (1) train ptb-xl  -----------
-    # ptb_xl_config = parse_config(config['ptb_xl'], 'config_defaults/train_ptb_xl_defaults.yaml')
-    # ptb_xl_config.deterministic = False
+    # ----------- (1) train ptb-xl  -----------
+    ptb_xl_config = parse_config(config['ptb_xl'], 'config_defaults/train_ptb_xl_defaults.yaml')
+    ptb_xl_config.deterministic = False
 
-    # for i in range(args.num_runs):
-    #     train_ptb_xl(ptb_xl_config, wandb=args.wandb_log)
-
-
-    # # ----------- (2) train cpsc2018 -----------
-    # cpsc2018_config = parse_config(config['cpsc2018'], 'config_defaults/train_cpsc2018_defaults.yaml')
-    # cpsc2018_config.deterministic = False
-
-    # for i in range(args.num_runs):
-    #     train_cpsc2018(cpsc2018_config, wandb=args.wandb_log)
+    for i in range(args.num_runs):
+        train_ptb_xl(ptb_xl_config, wandb=args.wandb_log)
 
 
-    # # ----------- (3) train mit bih arrhythmia classification -----------
-    # mit_bih_config = parse_config(config['mit_bih'], 'config_defaults/train_mit_bih_defaults.yaml')
-    # mit_bih_config.deterministic = False
+    # ----------- (2) train cpsc2018 -----------
+    cpsc2018_config = parse_config(config['cpsc2018'], 'config_defaults/train_cpsc2018_defaults.yaml')
+    cpsc2018_config.deterministic = False
 
-    # for i in range(args.num_runs):
-    #     train_mit_bih(mit_bih_config, wandb=args.wandb_log)
-
-
-    # # ----------- (4) train mit bih r-peak detection -----------
-    # r_peak_config = parse_config(config['r_peaks'], 'config_defaults/train_mit_bih_defaults.yaml')
-    # r_peak_config.deterministic = False
-    # r_peak_config.r_peaks_detection = True
-
-    # for i in range(args.num_runs):
-    #     train_mit_bih(r_peak_config, wandb=args.wandb_log)
+    for i in range(args.num_runs):
+        train_cpsc2018(cpsc2018_config, wandb=args.wandb_log)
 
 
-    # # ------------ (5) train survival analysis -----------
-    # survival_config = parse_config(config['survival'], 'config_defaults/train_survival_defaults.yaml')
-    # survival_config.deterministic = False
+    # ----------- (3) train mit bih arrhythmia classification -----------
+    mit_bih_config = parse_config(config['mit_bih'], 'config_defaults/train_mit_bih_defaults.yaml')
+    mit_bih_config.deterministic = False
 
-    # for i in range(args.num_runs):
-    #     train_survival(survival_config, wandb=args.wandb_log)
-
-
-    # # ------------ (6) train age prediction -----------
-    # age_config = parse_config(config['age'], 'config_defaults/train_age_defaults.yaml')
-    # age_config.deterministic = False
-
-    # for i in range(args.num_runs):
-    #     train_age(age_config, wandb=args.wandb_log)
+    for i in range(args.num_runs):
+        train_mit_bih(mit_bih_config, wandb=args.wandb_log)
 
 
-    # # ------------ (7) train sleep apnea detection -----------
-    # sleep_apnea_config = parse_config(config['sleep_apnea'], 'config_defaults/train_sleep_apnea_defaults.yaml')
-    # sleep_apnea_config.deterministic = False
+    # ----------- (4) train mit bih r-peak detection -----------
+    r_peak_config = parse_config(config['r_peaks'], 'config_defaults/train_mit_bih_defaults.yaml')
+    r_peak_config.deterministic = False
+    r_peak_config.r_peaks_detection = True
 
-    # for i in range(args.num_runs):
-    #     train_sleep_apnea(sleep_apnea_config, wandb=args.wandb_log)
-
-
-    # # ------------ (8) train lab mimic prediction -----------
-    # lab_mimic_config = parse_config(config['lab_test'], 'config_defaults/train_blood_test_defaults.yaml')
-    # lab_mimic_config.deterministic = False
-
-    # for i in range(args.num_runs):
-    #     train_lab_mimic(lab_mimic_config, wandb=args.wandb_log)
+    for i in range(args.num_runs):
+        train_mit_bih(r_peak_config, wandb=args.wandb_log)
 
 
-    # # ------------ (9) exercise r-peak detection -----------
-    # exercise_r_peak_config = parse_config(config['exercise'], 'config_defaults/train_high_intensity_defaults.yaml')
-    # exercise_r_peak_config.deterministic = False
-    # exercise_r_peak_config.r_peaks_detection = True
+    # ------------ (5) train survival analysis -----------
+    survival_config = parse_config(config['survival'], 'config_defaults/train_survival_defaults.yaml')
+    survival_config.deterministic = False
 
-    # for i in range(args.num_runs):
-    #     train_r_peak_intense(exercise_r_peak_config, wandb=args.wandb_log)
+    for i in range(args.num_runs):
+        train_survival(survival_config, wandb=args.wandb_log)
+
+
+    # ------------ (6) train age prediction -----------
+    age_config = parse_config(config['age'], 'config_defaults/train_age_defaults.yaml')
+    age_config.deterministic = False
+
+    for i in range(args.num_runs):
+        train_age(age_config, wandb=args.wandb_log)
+
+
+    # ------------ (7) train sleep apnea detection -----------
+    sleep_apnea_config = parse_config(config['sleep_apnea'], 'config_defaults/train_sleep_apnea_defaults.yaml')
+    sleep_apnea_config.deterministic = False
+
+    for i in range(args.num_runs):
+        train_sleep_apnea(sleep_apnea_config, wandb=args.wandb_log)
+
+
+    # ------------ (8) train lab mimic prediction -----------
+    lab_mimic_config = parse_config(config['lab_test'], 'config_defaults/train_blood_test_defaults.yaml')
+    lab_mimic_config.deterministic = False
+
+    for i in range(args.num_runs):
+        train_lab_mimic(lab_mimic_config, wandb=args.wandb_log)
+
+
+    # ------------ (9) exercise r-peak detection -----------
+    exercise_r_peak_config = parse_config(config['exercise'], 'config_defaults/train_high_intensity_defaults.yaml')
+    exercise_r_peak_config.deterministic = False
+    exercise_r_peak_config.r_peaks_detection = True
+
+    for i in range(args.num_runs):
+        train_r_peak_intense(exercise_r_peak_config, wandb=args.wandb_log)
 
 
     # ------------ (10) train ppg af -----------
