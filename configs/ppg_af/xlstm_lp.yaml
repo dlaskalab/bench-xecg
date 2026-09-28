@@ -9,7 +9,7 @@ deterministic: false
 
 
 batch_size: 512
-data_folder_deepbeat: /home/datasets/DeepBeat_PPG/
+data_folder_deepbeat: /data/groups/dlaskalab/Deepbeat_PPG/
 
 data_pct: 0.05
 

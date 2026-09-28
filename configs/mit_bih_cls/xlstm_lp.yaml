@@ -29,4 +29,4 @@ win_len: 1800
 max_length_signal: 180556
 extend_labels: true
 
-data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
+data_folder_mit: /data/groups/dlaskalab/MIT-BIH_arrhythmia/
