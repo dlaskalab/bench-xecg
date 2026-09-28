@@ -93,7 +93,7 @@ if __name__ == '__main__':
 
 
     # # ------------ (9) exercise r-peak detection -----------
-    # exercise_r_peak_config = parse_config(config['exercise_r_peaks'], 'config_defaults/train_high_intensity_defaults.yaml')
+    # exercise_r_peak_config = parse_config(config['exercise'], 'config_defaults/train_high_intensity_defaults.yaml')
     # exercise_r_peak_config.deterministic = False
     # exercise_r_peak_config.r_peaks_detection = True
 
