@@ -161,8 +161,8 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
     def predict_batch(self, batch):
         x = batch["signals"]
         targets = batch['labels'].long()
-        age = batch['ages']
-        gender = batch['genders']
+        age = batch.get('ages')
+        gender = batch.get('genders')
 
         if self.linear_probing:
             self.model.set_eval_linear_probing()
@@ -198,7 +198,7 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
 
     def plot_mit_bih_pred(self, sample, logdir, name):
         with torch.no_grad():
-            signal = torch.from_numpy(sample['signal'].copy()).to(self.device).unsqueeze(0).float()
+            signal = torch.from_numpy(sample['signals'].copy()).to(self.device).unsqueeze(0).float()
             targets = torch.from_numpy(sample['label']).to(self.device).unsqueeze(0)
 
             predicted = self.model(signal)
