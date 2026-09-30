@@ -26,7 +26,7 @@ use_final_layer_norm: false
 cls_normalization: null  # 'batch', 'layer', 'instance'
 patch_embedding: linear
 
-data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
+data_folder_mit: /data/groups/dlaskalab/MIT-BIH_arrhythmia/
 
 r_peaks_detection: true
 original_freq: 360

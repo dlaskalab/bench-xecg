@@ -105,7 +105,7 @@ def pretrain(config, run=None, wandb=False):
             logger=False,
             max_epochs=config.epochs, 
             callbacks=[checkpoint_callback, early_stopping], 
-            gradient_clip_val=config.grad_clip,
+            gradient_clip_val=config.grad_clip if model.automatic_optimization else None, # manual optimization clips in the model
             accelerator='gpu',
             devices=num_gpus,
             strategy='ddp_find_unused_parameters_true' if num_gpus > 1 else 'auto',

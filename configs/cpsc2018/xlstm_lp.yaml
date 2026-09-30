@@ -19,7 +19,7 @@ use_final_layer_norm: false
 cls_normalization: null  # 'batch', 'layer', 'instance'
 cls_type: max
 
-data_folder_cpsc2018: /home/datasets/CPSC2018/
+data_folder_cpsc2018: /data/groups/dlaskalab/CPSC2018/
 
 
 max_length_signal: 5000

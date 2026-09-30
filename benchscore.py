@@ -13,12 +13,12 @@ app = typer.Typer()
 # Map folders to the specific metric column name in the CSV
 TASK_METRIC_MAP = {
     "train-age": [
-        "test_rsmape_0_mimic/dataloader_idx_1", 
-        "test_rsmape_0_ptbxl/dataloader_idx_0", 
-        "test_rsmape_0_cpsc/dataloader_idx_2"
+        "mimic/test_rsmape/dataloader_idx_1", 
+        "ptbxl/test_rsmape/dataloader_idx_0", 
+        "cpsc/test_rsmape/dataloader_idx_2"
     ],
     "train-cpsc2018-multilabel": "test_auroc",
-    "train-exercise-r_peak": "test_f1_20", 
+    "train-exercise-r-peak": "test_f1_20", 
     "train-lab": "test_auroc_avg",            
     "train-mitbih-5": "test_f1/mean",       
     "train-mitbih-r_peaks": "test_f1_20",  

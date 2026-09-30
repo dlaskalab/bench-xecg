@@ -18,7 +18,7 @@ checkpoint: pretrain-xLSTM/0rgc8fun/checkpoints/epoch=49-step=504700.ckpt
 use_final_layer_norm: false
 cls_normalization: null  # 'batch', 'layer', 'instance'
 
-data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
+data_folder_mimic: /data/groups/dlaskalab/mimic-iv-ecg/raw/
 
 
 training_pct: 1.

@@ -76,17 +76,17 @@ local_random_crop: 0.4
 win_len_incart: 12
 
 # folders
-data_folder_mit: /home/datasets/MIT-BIH_arrhythmia/
-data_folder_code15: /scratch/datasets/CODE15/processed/
-labels_file_code15: /scratch/datasets/CODE15/processed/exams_filtered.csv
-data_folder_mimic: /scratch/datasets/mimic-iv-ecg/raw/
+data_folder_mit: /data/groups/dlaskalab/MIT-BIH_arrhythmia/
+data_folder_code15: /data/groups/dlaskalab/CODE15/processed/
+labels_file_code15: /data/groups/dlaskalab/CODE15/processed/exams_filtered.csv
+data_folder_mimic: /data/groups/dlaskalab/mimic-iv-ecg/raw/
 
-data_folder_ptbxl: /scratch/datasets/ptb-xl/raw/1.0.3/records500/
+data_folder_ptbxl: /data/groups/dlaskalab/ptb-xl/raw/1.0.3/records500/
 
-data_folder_chapman: /home/datasets/ChapmanNingbo/1.0.0/
-labels_file_chapman:  /home/datasets/ChapmanNingbo/1.0.0/exams_filtered.csv
-data_folder_code: /scratch/datasets/CODE/processed/
-labels_file_code: /scratch/datasets/CODE/processed/exams_filtered.csv
-annotation_file_code: /scratch/datasets/CODE/processed/annotations.csv
-data_folder_incart: /home/datasets/incart/
+data_folder_chapman: /data/groups/dlaskalab/ChapmanNingbo/1.0.0/
+labels_file_chapman:  /data/groups/dlaskalab/ChapmanNingbo/1.0.0/exams_filtered.csv
+data_folder_code: /data/groups/dlaskalab/CODE/processed/
+labels_file_code: /data/groups/dlaskalab/CODE/processed/exams_filtered.csv
+annotation_file_code: /data/groups/dlaskalab/CODE/processed/annotations.csv
+data_folder_incart: /data/groups/dlaskalab/incart/
 data_folder_heedb: /scratch/datasets/HEEDB/

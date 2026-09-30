@@ -304,7 +304,7 @@ class ECGMITBIHDataset(torch.utils.data.Dataset):
 
 
         return {
-            'signal': window_signal,
+            'signals': window_signal,
             'patient_id': patient,
             'label': labels_mask,
             'age': age,
