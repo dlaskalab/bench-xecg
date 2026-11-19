@@ -215,6 +215,9 @@ def get_trainer(config, prj_string, wandb=False, run=None, version=None):
         early_stopping = EarlyStopping(monitor=config.monitor_metric, check_finite=True, patience=config.patience, mode=config.monitor_mode)
         callbacks.append(early_stopping)
 
+        checkpoint_callback = ModelCheckpoint(monitor=config.monitor_metric, mode=config.monitor_mode)
+        callbacks.append(checkpoint_callback)
+
         if config.monitor_metric != 'val_loss':
             nan_stop = EarlyStopping(monitor='val_loss', check_finite=True, patience=config.epochs, mode='min')
             callbacks.append(nan_stop)
@@ -223,9 +226,6 @@ def get_trainer(config, prj_string, wandb=False, run=None, version=None):
 
     if wandb:
         print(f"Using WandbLogger for project {prj_string} and run {run}")
-        if config.monitor_metric is not None:
-            checkpoint_callback = ModelCheckpoint(monitor=config.monitor_metric, mode=config.monitor_mode)
-            callbacks.append(checkpoint_callback)
         lr_monitor = LearningRateMonitor(logging_interval='step')
         callbacks.append(lr_monitor)
 
