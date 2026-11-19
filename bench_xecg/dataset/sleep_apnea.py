@@ -1,4 +1,5 @@
 import os
+import random
 
 import torch
 import pandas as pd
@@ -11,11 +12,12 @@ from .generic_utils import RandomSwitchBaselineWanderBatched
 
 
 class ECGSleepApneaDataset(torch.utils.data.Dataset):
-    def __init__(self, config, split='train', augmentations=None):
+    def __init__(self, config, split='train', augmentations=None, split_seed=None):
         self.patch_size = config.patch_size
         self.sampling_freq = config.sampling_freq
         self.data_folder = config.data_folder_sleep_apnea
         self.split = split
+        self.split_seed = split_seed
         self.leads = config.leads
         self.window_size = config.window_size * 100 # seconds of data to classify
         self.context_size_half = config.context_size * 100 // 2 # seconds of context for each ecg
@@ -38,28 +40,29 @@ class ECGSleepApneaDataset(torch.utils.data.Dataset):
         with open(os.path.join(self.data_folder, 'RECORDS'), 'r') as f:
             records = f.readlines()
 
-        # keep only the first 4 characters of each line
-        records = [record.strip()[:3] for record in records]
-        records = list(set(records))  # remove duplicates
+        # keep only the first 3 characters of each line and sort deterministically before splitting
+        records = sorted(set(record.strip()[:3] for record in records if record.strip()))
 
-        test_idxs = [i for i, record in enumerate(records) if record.startswith('x')]
+        train_val_records = [r for r in records if not r.startswith('x')]
+        test_records = [r for r in records if r.startswith('x')]
 
+        if self.split_seed is not None:
+            random.Random(self.split_seed).shuffle(train_val_records)
+
+        split_idx = int(len(train_val_records) * 0.8)
         if self.split == 'train':
-            records = [record for i, record in enumerate(records) if i not in test_idxs]
-            # keep the 90% of the records
-            records = records[:int(len(records) * 0.8)]
-            print(f"Training records: {records}")
+            selected = train_val_records[:split_idx]
+            print(f"Training records (seed={self.split_seed}): {selected}")
         elif self.split == 'val':
-            records = [record for i, record in enumerate(records) if not i in test_idxs]
-            # keep the 10% of the records
-            records = records[int(len(records) * 0.8):]
-            print(f"Validation records: {records}")
-
+            selected = train_val_records[split_idx:]
+            print(f"Validation records (seed={self.split_seed}): {selected}")
         elif self.split == 'test':
-            records = [record for i, record in enumerate(records) if i in test_idxs]
-            print(f"Test records: {records}")
+            selected = test_records
+            print(f"Test records: {selected}")
+        else:
+            raise ValueError(f"Unknown split: {self.split}")
 
-        self.records = [os.path.join(self.data_folder, record) for record in records]    
+        self.records = [os.path.join(self.data_folder, record) for record in selected]    
 
     def load_samples(self):
         # for each record, divide it into 5 min segments
