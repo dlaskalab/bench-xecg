@@ -1,6 +1,8 @@
+import argparse
+import random
+
 import lightning as L
 import torch
-import argparse
 from torch.utils.data import DataLoader
 
 import bench_xecg.utils.utils as utils
@@ -30,9 +32,10 @@ def train(config, run=None, wandb=False):
     if config.deterministic: L.seed_everything(42)
     check_window_size(config)
 
-    train_dataset =  sleep_apnea.ECGSleepApneaDataset(config, split='train', augmentations=get_transforms(config))
+    split_seed = 42 if config.deterministic else random.randrange(2**32)
+    train_dataset = sleep_apnea.ECGSleepApneaDataset(config, split='train', augmentations=get_transforms(config), split_seed=split_seed)
     print(f"Train dataset size: {len(train_dataset)}")
-    val_dataset = sleep_apnea.ECGSleepApneaDataset(config, split='val', augmentations=get_transforms(config, split='val'))
+    val_dataset = sleep_apnea.ECGSleepApneaDataset(config, split='val', augmentations=get_transforms(config, split='val'), split_seed=split_seed)
     print(f"Val dataset size: {len(val_dataset)}")
 
     if config.use_class_weights:

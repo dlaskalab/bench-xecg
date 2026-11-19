@@ -43,14 +43,14 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
         self.test_precision = torchmetrics.Precision(num_classes=self.num_classes, average=None, ignore_index=-1, task='multiclass', top_k=1)
 
     def log_perclass_metric(self, metric, metric_name, step='val'):
-        self.log(f"{step}_{metric_name}/N", metric[0], metric_attribute=metric_name)
-        self.log(f"{step}_{metric_name}/S", metric[1], metric_attribute=metric_name)
-        self.log(f"{step}_{metric_name}/V", metric[2], metric_attribute=metric_name)
+        self.log(f"{step}_{metric_name}/N", metric[0])
+        self.log(f"{step}_{metric_name}/S", metric[1])
+        self.log(f"{step}_{metric_name}/V", metric[2])
         if self.num_classes == 5:
-            self.log(f"{step}_{metric_name}/F", metric[3], metric_attribute=metric_name)
-            self.log(f"{step}_{metric_name}/Q", metric[4], metric_attribute=metric_name)
-        
-        self.log(f"{step}_{metric_name}/mean", metric.mean(), metric_attribute=metric_name)
+            self.log(f"{step}_{metric_name}/F", metric[3])
+            self.log(f"{step}_{metric_name}/Q", metric[4])
+
+        self.log(f"{step}_{metric_name}/mean", metric.mean())
 
     def training_step(self, batch, _):
         loss_cls, preds, targets, logits = self.predict_batch(batch)
@@ -77,17 +77,10 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
         self.valid_f1(preds.flatten(), targets.flatten())
         self.log('val_f1', self.valid_f1, prog_bar=True)
 
-        # specificity
-        specificity = self.val_spec(preds, targets)
-        self.log_perclass_metric(specificity, 'specificity', step='val')
-
-        # sensitivity
-        recall = self.val_recall(preds, targets)
-        self.log_perclass_metric(recall, 'sensitivity', step='val')
-
-        # ppv
-        ppv = self.val_precision(preds, targets)
-        self.log_perclass_metric(ppv, 'ppv', step='val')
+        # accumulate per-class metrics across the full validation epoch
+        self.val_spec.update(preds, targets)
+        self.val_recall.update(preds, targets)
+        self.val_precision.update(preds, targets)
 
         # auroc
         self.valid_auroc(logits, targets.long())
@@ -102,20 +95,12 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
         self.test_acc(preds.flatten(), targets.flatten())
         self.log("test_acc", self.test_acc)
 
-        acc = self.test_acc_no_avg(preds.flatten(), targets.flatten())
-        self.log_perclass_metric(acc, 'acc', step='test')
-
-        f1 = self.test_f1(preds.flatten(), targets.flatten())
-        self.log_perclass_metric(f1, 'f1', step='test')
-
-        specificity = self.test_spec(preds, targets)
-        self.log_perclass_metric(specificity, 'specificity', step='test')
-
-        recall = self.test_recall(preds, targets)
-        self.log_perclass_metric(recall, 'sensitivity', step='test')
-
-        ppv = self.test_precision(preds, targets)
-        self.log_perclass_metric(ppv, 'ppv', step='test')
+        # accumulate per-class metrics across the full test epoch (computed in on_test_epoch_end)
+        self.test_acc_no_avg.update(preds.flatten(), targets.flatten())
+        self.test_f1.update(preds.flatten(), targets.flatten())
+        self.test_spec.update(preds, targets)
+        self.test_recall.update(preds, targets)
+        self.test_precision.update(preds, targets)
 
         # auroc  
         self.test_auroc(logits, targets.long())
@@ -150,11 +135,34 @@ class TrainingMIT_BIH(CommonTrainerDownstream):
         super().on_train_epoch_end()
 
     def on_validation_epoch_end(self):
-        self.plot_predictions_if_needed(self.trainer.val_dataloaders, step='val')
-        super().on_test_epoch_end()
+        self.log_perclass_metric(self.val_spec.compute(), 'specificity', step='val')
+        self.val_spec.reset()
 
+        self.log_perclass_metric(self.val_recall.compute(), 'sensitivity', step='val')
+        self.val_recall.reset()
+
+        self.log_perclass_metric(self.val_precision.compute(), 'ppv', step='val')
+        self.val_precision.reset()
+
+        self.plot_predictions_if_needed(self.trainer.val_dataloaders, step='val')
+        super().on_validation_epoch_end()
 
     def on_test_epoch_end(self):
+        self.log_perclass_metric(self.test_acc_no_avg.compute(), 'acc', step='test')
+        self.test_acc_no_avg.reset()
+
+        self.log_perclass_metric(self.test_f1.compute(), 'f1', step='test')
+        self.test_f1.reset()
+
+        self.log_perclass_metric(self.test_spec.compute(), 'specificity', step='test')
+        self.test_spec.reset()
+
+        self.log_perclass_metric(self.test_recall.compute(), 'sensitivity', step='test')
+        self.test_recall.reset()
+
+        self.log_perclass_metric(self.test_precision.compute(), 'ppv', step='test')
+        self.test_precision.reset()
+
         self.plot_predictions_if_needed(self.trainer.test_dataloaders, step='test')
         super().on_test_epoch_end()
 
